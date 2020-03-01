@@ -24,13 +24,14 @@ public class BuilderInfo {
   private static final String BUILDER_OBTAIN_VIA_FIELD = "field";
   private static final String BUILDER_OBTAIN_VIA_METHOD = "method";
   private static final String BUILDER_OBTAIN_VIA_STATIC = "isStatic";
-  private static final String BUILDER_OBTAIN_VIA_ANNOTATION = Builder.ObtainVia.class.getName().replace("$", ".");
-  private static final String BUILDER_DEFAULT_ANNOTATION = Builder.Default.class.getName().replace("$", ".");
+  private static final String BUILDER_OBTAIN_VIA_ANNOTATION = Builder.ObtainVia.class.getCanonicalName();
+  private static final String BUILDER_DEFAULT_ANNOTATION = Builder.Default.class.getCanonicalName();
 
   private PsiVariable variableInClass;
   private PsiType fieldInBuilderType;
   private boolean deprecated;
   private String visibilityModifier;
+  private String setterPrefix;
 
   private String builderChainResult = "this";
 
@@ -100,6 +101,11 @@ public class BuilderInfo {
 
   public BuilderInfo withVisibilityModifier(String visibilityModifier) {
     this.visibilityModifier = visibilityModifier;
+    return this;
+  }
+
+  public BuilderInfo withSetterPrefix(String setterPrefix) {
+    this.setterPrefix = setterPrefix;
     return this;
   }
 
@@ -185,6 +191,10 @@ public class BuilderInfo {
   @PsiModifier.ModifierConstant
   public String getVisibilityModifier() {
     return visibilityModifier;
+  }
+
+  public String getSetterPrefix() {
+    return setterPrefix;
   }
 
   public PsiClass getBuilderClass() {
