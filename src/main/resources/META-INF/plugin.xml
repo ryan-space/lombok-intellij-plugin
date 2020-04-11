@@ -26,6 +26,9 @@
     <applicationService
       serviceImplementation="de.plushnikov.intellij.plugin.processor.handler.EqualsAndHashCodeToStringHandler"/>
 
+    <applicationService
+      serviceImplementation="de.plushnikov.intellij.plugin.processor.handler.JresEqualsAndHashCodeToStringHandler"/>
+
     <!-- Start of lombok Processors-->
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.ValProcessor"/>
 
