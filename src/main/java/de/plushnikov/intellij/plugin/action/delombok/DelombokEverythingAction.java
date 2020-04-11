@@ -1,14 +1,7 @@
 package de.plushnikov.intellij.plugin.action.delombok;
 
 import com.intellij.openapi.components.ServiceManager;
-import de.plushnikov.intellij.plugin.processor.clazz.DataProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.EqualsAndHashCodeProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.GetterProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.SetterProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.ToStringProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.UtilityClassProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.ValueProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.WitherProcessor;
+import de.plushnikov.intellij.plugin.processor.clazz.*;
 import de.plushnikov.intellij.plugin.processor.clazz.builder.BuilderClassProcessor;
 import de.plushnikov.intellij.plugin.processor.clazz.builder.BuilderPreDefinedInnerClassFieldProcessor;
 import de.plushnikov.intellij.plugin.processor.clazz.builder.BuilderPreDefinedInnerClassMethodProcessor;
@@ -56,6 +49,12 @@ public class DelombokEverythingAction extends AbstractDelombokAction {
       ServiceManager.getService(SetterProcessor.class),
       ServiceManager.getService(EqualsAndHashCodeProcessor.class),
       ServiceManager.getService(ToStringProcessor.class),
+
+      ServiceManager.getService(JresDataProcessor.class),
+      ServiceManager.getService(JresGetterProcessor.class),
+      ServiceManager.getService(JresSetterProcessor.class),
+      ServiceManager.getService(JresEqualsAndHashCodeProcessor.class),
+      ServiceManager.getService(JresToStringProcessor.class),
 
       ServiceManager.getService(CommonsLogProcessor.class), ServiceManager.getService(JBossLogProcessor.class), ServiceManager.getService(Log4jProcessor.class),
       ServiceManager.getService(Log4j2Processor.class), ServiceManager.getService(LogProcessor.class), ServiceManager.getService(Slf4jProcessor.class),
