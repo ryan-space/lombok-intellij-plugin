@@ -109,6 +109,9 @@
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.field.SetterFieldProcessor"/>
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.field.WitherFieldProcessor"/>
 
+    <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.field.JresGetterFieldProcessor"/>
+    <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.field.JresSetterFieldProcessor"/>
+
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.method.DelegateMethodProcessor"/>
 
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.CleanupProcessor"/>
