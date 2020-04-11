@@ -63,6 +63,13 @@
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.ToStringProcessor"/>
     <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.WitherProcessor"/>
 
+    <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.JresDataProcessor"/>
+    <applicationService
+      serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.JresEqualsAndHashCodeProcessor"/>
+    <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.JresGetterProcessor"/>
+    <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.JresSetterProcessor"/>
+    <applicationService serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.JresToStringProcessor"/>
+
     <applicationService
       serviceImplementation="de.plushnikov.intellij.plugin.processor.clazz.builder.BuilderPreDefinedInnerClassFieldProcessor"/>
     <applicationService
