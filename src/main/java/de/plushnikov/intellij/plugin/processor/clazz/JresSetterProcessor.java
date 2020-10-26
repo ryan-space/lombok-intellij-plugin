@@ -1,6 +1,7 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
 import com.hundsun.jres.studio.annotation.JRESSetter;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
@@ -9,8 +10,10 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.PsiModifierList;
 import com.intellij.psi.PsiType;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
+import de.plushnikov.intellij.plugin.processor.field.JresSetterFieldProcessor;
 import de.plushnikov.intellij.plugin.processor.field.JresSetterFieldProcessor;
 import de.plushnikov.intellij.plugin.thirdparty.LombokUtils;
 import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
@@ -31,11 +34,12 @@ import java.util.List;
  */
 public class JresSetterProcessor extends AbstractClassProcessor {
 
-  private final JresSetterFieldProcessor fieldProcessor;
+  public JresSetterProcessor() {
+    super(PsiMethod.class, LombokClassNames.JRES_SETTER);
+  }
 
-  public JresSetterProcessor(@NotNull JresSetterFieldProcessor setterFieldProcessor) {
-    super(PsiMethod.class, JRESSetter.class);
-    this.fieldProcessor = setterFieldProcessor;
+  private JresSetterFieldProcessor getSetterFieldProcessor() {
+    return ApplicationManager.getApplication().getService(JresSetterFieldProcessor.class);
   }
 
   @Override
@@ -69,6 +73,7 @@ public class JresSetterProcessor extends AbstractClassProcessor {
 
     final Collection<PsiField> setterFields = filterSetterFields(psiClass);
 
+    JresSetterFieldProcessor fieldProcessor = getSetterFieldProcessor();
     for (PsiField setterField : setterFields) {
       result.add(fieldProcessor.createSetterMethod(setterField, psiClass, methodModifier));
     }
@@ -80,6 +85,7 @@ public class JresSetterProcessor extends AbstractClassProcessor {
     final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
     filterToleratedElements(classMethods);
 
+    JresSetterFieldProcessor fieldProcessor = getSetterFieldProcessor();
     final Collection<PsiField> setterFields = new ArrayList<>();
     for (PsiField psiField : psiClass.getFields()) {
       boolean createSetter = true;

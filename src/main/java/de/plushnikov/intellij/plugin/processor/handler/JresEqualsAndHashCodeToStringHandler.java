@@ -1,35 +1,19 @@
 package de.plushnikov.intellij.plugin.processor.handler;
 
-import com.hundsun.jres.studio.annotation.JRESData;
-import com.hundsun.jres.studio.annotation.JRESGetter;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMember;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifier;
-import com.intellij.psi.PsiType;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.thirdparty.LombokUtils;
-import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
-import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
-import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
-import de.plushnikov.intellij.plugin.util.PsiClassUtil;
-import de.plushnikov.intellij.plugin.util.PsiMethodUtil;
-import lombok.Value;
+import de.plushnikov.intellij.plugin.util.*;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 
 public class JresEqualsAndHashCodeToStringHandler {
 
   private static final String TO_STRING_RANK_ANNOTATION_PARAMETER = "rank";
 
-  public static class MemberInfo implements Comparable<MemberInfo> {
+  public static class MemberInfo implements Comparable<JresEqualsAndHashCodeToStringHandler.MemberInfo> {
     private final PsiField psiField;
     private final PsiMethod psiMethod;
     private final String memberName;
@@ -91,12 +75,12 @@ public class JresEqualsAndHashCodeToStringHandler {
     }
 
     @Override
-    public int compareTo(@NotNull MemberInfo other) {
+    public int compareTo(@NotNull JresEqualsAndHashCodeToStringHandler.MemberInfo other) {
       return Integer.compare(other.rankValue, rankValue);
     }
   }
 
-  public Collection<MemberInfo> filterFields(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, boolean filterTransient, String includeAnnotationProperty) {
+  public Collection<JresEqualsAndHashCodeToStringHandler.MemberInfo> filterFields(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, boolean filterTransient, String includeAnnotationProperty) {
     final boolean explicitOf = PsiAnnotationUtil.hasDeclaredProperty(psiAnnotation, "of");
     final boolean onlyExplicitlyIncluded = PsiAnnotationUtil.getBooleanAnnotationValue(psiAnnotation, "onlyExplicitlyIncluded", false);
 
@@ -118,7 +102,7 @@ public class JresEqualsAndHashCodeToStringHandler {
     final Collection<PsiMember> psiMembers = PsiClassUtil.collectClassMemberIntern(psiClass);
 
     final Collection<String> fieldNames2BeReplaced = new ArrayList<>();
-    final List<MemberInfo> result = new ArrayList<>(psiMembers.size());
+    final List<JresEqualsAndHashCodeToStringHandler.MemberInfo> result = new ArrayList<>(psiMembers.size());
 
     for (PsiMember psiMember : psiMembers) {
       final PsiAnnotation includeAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiMember, annotationIncludeFQN);
@@ -136,7 +120,7 @@ public class JresEqualsAndHashCodeToStringHandler {
         }
 
         if (ofProperty.contains(fieldName)) {
-          result.add(new MemberInfo(psiField));
+          result.add(new JresEqualsAndHashCodeToStringHandler.MemberInfo(psiField));
           continue;
         } else if (explicitOf) {
           continue;
@@ -158,7 +142,7 @@ public class JresEqualsAndHashCodeToStringHandler {
         if (PsiAnnotationSearchUtil.isAnnotatedWith(psiField, annotationExcludeFQN)) {
           continue;
         }
-        result.add(new MemberInfo(psiField, fieldName, true));
+        result.add(new JresEqualsAndHashCodeToStringHandler.MemberInfo(psiField, fieldName, true));
       } else {
         final String includeNameValue = PsiAnnotationUtil.getStringAnnotationValue(includeAnnotation, includeAnnotationProperty);
         final String newMemberName;
@@ -173,11 +157,11 @@ public class JresEqualsAndHashCodeToStringHandler {
           if (0 == psiMethod.getParameterList().getParametersCount()) {
             fieldNames2BeReplaced.add(newMemberName);
             int memberRank = calcMemberRank(includeAnnotation);
-            result.add(new MemberInfo(psiMethod, psiMethod.getName(), memberRank));
+            result.add(new JresEqualsAndHashCodeToStringHandler.MemberInfo(psiMethod, psiMethod.getName(), memberRank));
           }
         } else {
           int memberRank = calcMemberRank(includeAnnotation);
-          result.add(new MemberInfo((PsiField) psiMember, newMemberName, memberRank));
+          result.add(new JresEqualsAndHashCodeToStringHandler.MemberInfo((PsiField) psiMember, newMemberName, memberRank));
         }
       }
     }
@@ -187,7 +171,7 @@ public class JresEqualsAndHashCodeToStringHandler {
       result.removeIf(memberInfo -> memberInfo.matchDefaultIncludedFieldName(fieldName));
     }
 
-    result.sort(MemberInfo::compareTo);
+    result.sort(JresEqualsAndHashCodeToStringHandler.MemberInfo::compareTo);
     return result;
   }
 
@@ -202,7 +186,7 @@ public class JresEqualsAndHashCodeToStringHandler {
     return 0;
   }
 
-  public String getMemberAccessorName(@NotNull MemberInfo memberInfo, boolean doNotUseGetters, @NotNull PsiClass psiClass) {
+  public String getMemberAccessorName(@NotNull JresEqualsAndHashCodeToStringHandler.MemberInfo memberInfo, boolean doNotUseGetters, @NotNull PsiClass psiClass) {
     final String memberAccessor;
     if (null == memberInfo.getMethod()) {
       memberAccessor = buildAttributeNameString(doNotUseGetters, memberInfo.getField(), psiClass);
@@ -220,12 +204,12 @@ public class JresEqualsAndHashCodeToStringHandler {
       final String getterName = LombokUtils.getGetterName(classField);
 
       final boolean hasGetter;
-      @SuppressWarnings("unchecked") final boolean annotatedWith = PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, JRESData.class, Value.class, JRESGetter.class);
+      @SuppressWarnings("unchecked") final boolean annotatedWith = PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, LombokClassNames.DATA, LombokClassNames.VALUE, LombokClassNames.GETTER);
       if (annotatedWith) {
-        final PsiAnnotation getterLombokAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiClass, JRESGetter.class);
+        final PsiAnnotation getterLombokAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiClass, LombokClassNames.GETTER);
         hasGetter = null == getterLombokAnnotation || null != LombokProcessorUtil.getMethodModifier(getterLombokAnnotation);
       } else {
-        hasGetter = PsiMethodUtil.hasMethodByName(PsiClassUtil.collectClassMethodsIntern(psiClass), getterName);
+        hasGetter = PsiMethodUtil.hasMethodByName(PsiClassUtil.collectClassMethodsIntern(psiClass), getterName, 0);
       }
 
       return hasGetter ? getterName + "()" : fieldName;

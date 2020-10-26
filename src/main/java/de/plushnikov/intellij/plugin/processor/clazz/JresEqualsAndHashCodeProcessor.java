@@ -2,12 +2,15 @@ package de.plushnikov.intellij.plugin.processor.clazz;
 
 import com.hundsun.jres.studio.annotation.JRESEqualsAndHashCode;
 import com.intellij.codeInspection.LocalQuickFix;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTypesUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigKey;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
+import de.plushnikov.intellij.plugin.processor.handler.JresEqualsAndHashCodeToStringHandler;
 import de.plushnikov.intellij.plugin.processor.handler.JresEqualsAndHashCodeToStringHandler.MemberInfo;
 import de.plushnikov.intellij.plugin.processor.handler.JresEqualsAndHashCodeToStringHandler;
 import de.plushnikov.intellij.plugin.psi.LombokLightMethodBuilder;
@@ -38,14 +41,15 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
   private static final String CAN_EQUAL_METHOD_NAME = "canEqual";
 
   private static final String INCLUDE_ANNOTATION_METHOD = "replaces";
-  private static final String EQUALSANDHASHCODE_INCLUDE = JRESEqualsAndHashCode.Include.class.getCanonicalName();
-  private static final String EQUALSANDHASHCODE_EXCLUDE = JRESEqualsAndHashCode.Exclude.class.getCanonicalName();
+  private static final String EQUALSANDHASHCODE_INCLUDE = LombokClassNames.EQUALS_AND_HASHCODE_INCLUDE;
+  private static final String EQUALSANDHASHCODE_EXCLUDE = LombokClassNames.EQUALS_AND_HASHCODE_EXCLUDE;
 
-  private final JresEqualsAndHashCodeToStringHandler handler;
+  public JresEqualsAndHashCodeProcessor() {
+    super(PsiMethod.class, LombokClassNames.JRES_EQUALS_AND_HASHCODE);
+  }
 
-  public JresEqualsAndHashCodeProcessor(@NotNull JresEqualsAndHashCodeToStringHandler equalsAndHashCodeToStringHandler) {
-    super(PsiMethod.class, JRESEqualsAndHashCode.class);
-    handler = equalsAndHashCodeToStringHandler;
+  private JresEqualsAndHashCodeToStringHandler getEqualsAndHashCodeToStringHandler() {
+    return ApplicationManager.getApplication().getService(JresEqualsAndHashCodeToStringHandler.class);
   }
 
   @Override
@@ -112,17 +116,16 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
     return result;
   }
 
-  private boolean validateExistingMethods(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
+  private void validateExistingMethods(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
     if (hasOneOfMethodsDefined(psiClass)) {
       builder.addWarning("Not generating equals and hashCode: A method with one of those names already exists. (Either both or none of these methods will be generated).");
-      return false;
     }
-    return true;
   }
 
   private boolean hasOneOfMethodsDefined(@NotNull PsiClass psiClass) {
     final Collection<PsiMethod> classMethodsIntern = PsiClassUtil.collectClassMethodsIntern(psiClass);
-    return PsiMethodUtil.hasMethodByName(classMethodsIntern, EQUALS_METHOD_NAME, HASH_CODE_METHOD_NAME);
+    return PsiMethodUtil.hasMethodByName(classMethodsIntern, EQUALS_METHOD_NAME, 1) ||
+      PsiMethodUtil.hasMethodByName(classMethodsIntern, HASH_CODE_METHOD_NAME, 0);
   }
 
   protected void generatePsiElements(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
@@ -134,7 +137,8 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
       return Collections.emptyList();
     }
 
-    final Collection<MemberInfo> memberInfos = handler.filterFields(psiClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD);
+    final Collection<JresEqualsAndHashCodeToStringHandler.MemberInfo> memberInfos = getEqualsAndHashCodeToStringHandler()
+      .filterFields(psiClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD);
 
     final boolean shouldGenerateCanEqual = shouldGenerateCanEqual(psiClass);
 
@@ -142,7 +146,7 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
     result.add(createEqualsMethod(psiClass, psiAnnotation, shouldGenerateCanEqual, memberInfos));
 
     final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
-    if (shouldGenerateCanEqual && !PsiMethodUtil.hasMethodByName(classMethods, CAN_EQUAL_METHOD_NAME)) {
+    if (shouldGenerateCanEqual && !PsiMethodUtil.hasMethodByName(classMethods, CAN_EQUAL_METHOD_NAME, 1)) {
       result.add(createCanEqualMethod(psiClass, psiAnnotation));
     }
 
@@ -157,12 +161,12 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
     }
 
     final boolean isFinal = psiClass.hasModifierProperty(PsiModifier.FINAL) ||
-      (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, Value.class) && PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, NonFinal.class));
+      (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, LombokClassNames.VALUE) && PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.NON_FINAL));
     return !isFinal;
   }
 
   @NotNull
-  private PsiMethod createEqualsMethod(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, boolean hasCanEqualMethod, Collection<MemberInfo> memberInfos) {
+  private PsiMethod createEqualsMethod(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, boolean hasCanEqualMethod, Collection<JresEqualsAndHashCodeToStringHandler.MemberInfo> memberInfos) {
     final PsiManager psiManager = psiClass.getManager();
 
     final String blockText = createEqualsBlockString(psiClass, psiAnnotation, hasCanEqualMethod, memberInfos);
@@ -177,7 +181,7 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
   }
 
   @NotNull
-  private PsiMethod createHashCodeMethod(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, Collection<MemberInfo> memberInfos) {
+  private PsiMethod createHashCodeMethod(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, Collection<JresEqualsAndHashCodeToStringHandler.MemberInfo> memberInfos) {
     final PsiManager psiManager = psiClass.getManager();
 
     final String blockText = createHashcodeBlockString(psiClass, psiAnnotation, memberInfos);
@@ -205,7 +209,7 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
     return methodBuilder;
   }
 
-  private String createEqualsBlockString(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, boolean hasCanEqualMethod, Collection<MemberInfo> memberInfos) {
+  private String createEqualsBlockString(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, boolean hasCanEqualMethod, Collection<JresEqualsAndHashCodeToStringHandler.MemberInfo> memberInfos) {
     final boolean callSuper = readCallSuperAnnotationOrConfigProperty(psiAnnotation, psiClass, ConfigKey.EQUALSANDHASHCODE_CALL_SUPER);
     final boolean doNotUseGetters = readAnnotationOrConfigProperty(psiAnnotation, psiClass, "doNotUseGetters", ConfigKey.EQUALSANDHASHCODE_DO_NOT_USE_GETTERS);
 
@@ -225,7 +229,8 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
       builder.append("if (!super.equals(o)) return false;\n");
     }
 
-    for (MemberInfo memberInfo : memberInfos) {
+    JresEqualsAndHashCodeToStringHandler handler = getEqualsAndHashCodeToStringHandler();
+    for (JresEqualsAndHashCodeToStringHandler.MemberInfo memberInfo : memberInfos) {
       final String memberAccessor = handler.getMemberAccessorName(memberInfo, doNotUseGetters, psiClass);
 
       final PsiType memberType = memberInfo.getType();
@@ -261,7 +266,7 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
   private static final int PRIME_FOR_FALSE = 97;
   private static final int PRIME_FOR_NULL = 43;
 
-  private String createHashcodeBlockString(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, Collection<MemberInfo> memberInfos) {
+  private String createHashcodeBlockString(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, Collection<JresEqualsAndHashCodeToStringHandler.MemberInfo> memberInfos) {
     final boolean callSuper = readCallSuperAnnotationOrConfigProperty(psiAnnotation, psiClass, ConfigKey.EQUALSANDHASHCODE_CALL_SUPER);
     final boolean doNotUseGetters = readAnnotationOrConfigProperty(psiAnnotation, psiClass, "doNotUseGetters", ConfigKey.EQUALSANDHASHCODE_DO_NOT_USE_GETTERS);
 
@@ -278,7 +283,8 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
       builder.append("1;\n");
     }
 
-    for (MemberInfo memberInfo : memberInfos) {
+    JresEqualsAndHashCodeToStringHandler handler = getEqualsAndHashCodeToStringHandler();
+    for (JresEqualsAndHashCodeToStringHandler.MemberInfo memberInfo : memberInfos) {
       final String memberAccessor = handler.getMemberAccessorName(memberInfo, doNotUseGetters, psiClass);
       final String memberName = memberInfo.getMethod() == null ? memberInfo.getName() : "$" + memberInfo.getName();
 
@@ -326,8 +332,8 @@ public class JresEqualsAndHashCodeProcessor extends AbstractClassProcessor {
     final PsiClass containingClass = psiField.getContainingClass();
     if (null != containingClass) {
       final String psiFieldName = StringUtil.notNullize(psiField.getName());
-      if (handler.filterFields(containingClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD).stream()
-        .map(MemberInfo::getName).anyMatch(psiFieldName::equals)) {
+      if (getEqualsAndHashCodeToStringHandler().filterFields(containingClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD).stream()
+        .map(JresEqualsAndHashCodeToStringHandler.MemberInfo::getName).anyMatch(psiFieldName::equals)) {
         return LombokPsiElementUsage.READ;
       }
     }

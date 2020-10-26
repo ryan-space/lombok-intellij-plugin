@@ -1,11 +1,11 @@
 package de.plushnikov.intellij.plugin.action.lombok;
 
-import com.hundsun.jres.studio.annotation.JRESGetter;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.util.PropertyUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -23,7 +23,7 @@ public class JresLombokGetterHandler extends BaseLombokHandler {
       }
     }
 
-    processIntern(fieldMethodMap, psiClass, JRESGetter.class);
+    processIntern(fieldMethodMap, psiClass, LombokClassNames.JRES_GETTER);
   }
 
 }

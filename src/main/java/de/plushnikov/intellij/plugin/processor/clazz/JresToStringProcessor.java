@@ -1,12 +1,15 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
 import com.hundsun.jres.studio.annotation.JRESToString;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigKey;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
+import de.plushnikov.intellij.plugin.processor.handler.EqualsAndHashCodeToStringHandler;
 import de.plushnikov.intellij.plugin.processor.handler.JresEqualsAndHashCodeToStringHandler.MemberInfo;
 import de.plushnikov.intellij.plugin.processor.handler.JresEqualsAndHashCodeToStringHandler;
 import de.plushnikov.intellij.plugin.psi.LombokLightMethodBuilder;
@@ -29,19 +32,20 @@ import java.util.List;
  */
 public class JresToStringProcessor extends AbstractClassProcessor {
 
-  public static final String METHOD_NAME = "toString";
+  public static final String TO_STRING_METHOD_NAME = "toString";
 
   private static final String INCLUDE_ANNOTATION_METHOD = "name";
   private static final String INCLUDE_ANNOTATION_RANK = "rank";
   private static final String INCLUDE_ANNOTATION_SKIP_NULL = "skipNull";
-  private static final String TOSTRING_INCLUDE = JRESToString.Include.class.getCanonicalName();
-  private static final String TOSTRING_EXCLUDE = JRESToString.Exclude.class.getCanonicalName();
+  private static final String TOSTRING_INCLUDE = LombokClassNames.TO_STRING_INCLUDE;
+  private static final String TOSTRING_EXCLUDE = LombokClassNames.TO_STRING_EXCLUDE;
 
-  private final JresEqualsAndHashCodeToStringHandler handler;
+  public JresToStringProcessor() {
+    super(PsiMethod.class, LombokClassNames.JRES_TO_STRING);
+  }
 
-  public JresToStringProcessor(@NotNull JresEqualsAndHashCodeToStringHandler equalsAndHashCodeToStringHandler) {
-    super(PsiMethod.class, JRESToString.class);
-    handler = equalsAndHashCodeToStringHandler;
+  private EqualsAndHashCodeToStringHandler getEqualsAndHashCodeToStringHandler() {
+    return ApplicationManager.getApplication().getService(EqualsAndHashCodeToStringHandler.class);
   }
 
   @Override
@@ -74,16 +78,15 @@ public class JresToStringProcessor extends AbstractClassProcessor {
     return result;
   }
 
-  private boolean validateExistingMethods(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
-    boolean result = true;
-
-    final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
-    if (PsiMethodUtil.hasMethodByName(classMethods, METHOD_NAME)) {
-      builder.addWarning("Not generated '%s'(): A method with same name already exists", METHOD_NAME);
-      result = false;
+  private void validateExistingMethods(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
+    if (hasToStringMethodDefined(psiClass)) {
+      builder.addWarning("Not generated '%s'(): A method with same name already exists", TO_STRING_METHOD_NAME);
     }
+  }
 
-    return result;
+  private boolean hasToStringMethodDefined(@NotNull PsiClass psiClass) {
+    final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
+    return PsiMethodUtil.hasMethodByName(classMethods, TO_STRING_METHOD_NAME, 0);
   }
 
   protected void generatePsiElements(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
@@ -92,24 +95,23 @@ public class JresToStringProcessor extends AbstractClassProcessor {
 
   @NotNull
   Collection<PsiMethod> createToStringMethod(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation) {
-    final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
-    if (PsiMethodUtil.hasMethodByName(classMethods, METHOD_NAME)) {
+    if (hasToStringMethodDefined(psiClass)) {
       return Collections.emptyList();
     }
 
-    final Collection<MemberInfo> memberInfos = handler.filterFields(psiClass, psiAnnotation, false, INCLUDE_ANNOTATION_METHOD);
+    final Collection<EqualsAndHashCodeToStringHandler.MemberInfo> memberInfos = getEqualsAndHashCodeToStringHandler().filterFields(psiClass, psiAnnotation, false, INCLUDE_ANNOTATION_METHOD);
     final PsiMethod stringMethod = createToStringMethod(psiClass, memberInfos, psiAnnotation, false);
     return Collections.singletonList(stringMethod);
   }
 
   @NotNull
-  public PsiMethod createToStringMethod(@NotNull PsiClass psiClass, @NotNull Collection<MemberInfo> memberInfos, @NotNull PsiAnnotation psiAnnotation, boolean forceCallSuper) {
+  public PsiMethod createToStringMethod(@NotNull PsiClass psiClass, @NotNull Collection<EqualsAndHashCodeToStringHandler.MemberInfo> memberInfos, @NotNull PsiAnnotation psiAnnotation, boolean forceCallSuper) {
     final PsiManager psiManager = psiClass.getManager();
 
     final String paramString = createParamString(psiClass, memberInfos, psiAnnotation, forceCallSuper);
     final String blockText = String.format("return \"%s(%s)\";", getSimpleClassName(psiClass), paramString);
 
-    final LombokLightMethodBuilder methodBuilder = new LombokLightMethodBuilder(psiManager, METHOD_NAME)
+    final LombokLightMethodBuilder methodBuilder = new LombokLightMethodBuilder(psiManager, TO_STRING_METHOD_NAME)
       .withMethodReturnType(PsiType.getJavaLangString(psiManager, GlobalSearchScope.allScope(psiClass.getProject())))
       .withContainingClass(psiClass)
       .withNavigationElement(psiAnnotation)
@@ -133,7 +135,7 @@ public class JresToStringProcessor extends AbstractClassProcessor {
     return psiClassName.toString();
   }
 
-  private String createParamString(@NotNull PsiClass psiClass, @NotNull Collection<MemberInfo> memberInfos, @NotNull PsiAnnotation psiAnnotation, boolean forceCallSuper) {
+  private String createParamString(@NotNull PsiClass psiClass, @NotNull Collection<EqualsAndHashCodeToStringHandler.MemberInfo> memberInfos, @NotNull PsiAnnotation psiAnnotation, boolean forceCallSuper) {
     final boolean callSuper = forceCallSuper || readCallSuperAnnotationOrConfigProperty(psiAnnotation, psiClass, ConfigKey.TOSTRING_CALL_SUPER);
     final boolean doNotUseGetters = readAnnotationOrConfigProperty(psiAnnotation, psiClass, "doNotUseGetters", ConfigKey.TOSTRING_DO_NOT_USE_GETTERS);
     final boolean includeFieldNames = readAnnotationOrConfigProperty(psiAnnotation, psiClass, "includeFieldNames", ConfigKey.TOSTRING_INCLUDE_FIELD_NAMES);
@@ -143,7 +145,7 @@ public class JresToStringProcessor extends AbstractClassProcessor {
       paramString.append("super=\" + super.toString() + \", ");
     }
 
-    for (MemberInfo memberInfo : memberInfos) {
+    for (EqualsAndHashCodeToStringHandler.MemberInfo memberInfo : memberInfos) {
 
       if (includeFieldNames) {
         paramString.append(memberInfo.getName()).append('=');
@@ -160,7 +162,7 @@ public class JresToStringProcessor extends AbstractClassProcessor {
         }
       }
 
-      final String memberAccessor = handler.getMemberAccessorName(memberInfo, doNotUseGetters, psiClass);
+      final String memberAccessor = getEqualsAndHashCodeToStringHandler().getMemberAccessorName(memberInfo, doNotUseGetters, psiClass);
       paramString.append("this.").append(memberAccessor);
 
       if (classFieldType instanceof PsiArrayType) {
@@ -188,8 +190,8 @@ public class JresToStringProcessor extends AbstractClassProcessor {
     final PsiClass containingClass = psiField.getContainingClass();
     if (null != containingClass) {
       final String psiFieldName = StringUtil.notNullize(psiField.getName());
-      if (handler.filterFields(containingClass, psiAnnotation, false, INCLUDE_ANNOTATION_METHOD).stream()
-        .map(MemberInfo::getName).anyMatch(psiFieldName::equals)) {
+      if (getEqualsAndHashCodeToStringHandler().filterFields(containingClass, psiAnnotation, false, INCLUDE_ANNOTATION_METHOD).stream()
+        .map(EqualsAndHashCodeToStringHandler.MemberInfo::getName).anyMatch(psiFieldName::equals)) {
         return LombokPsiElementUsage.READ;
       }
     }

@@ -1,6 +1,7 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
 import com.hundsun.jres.studio.annotation.JRESGetter;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
@@ -9,9 +10,11 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.PsiModifierList;
 import com.intellij.psi.PsiType;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
 import de.plushnikov.intellij.plugin.processor.field.AccessorsInfo;
+import de.plushnikov.intellij.plugin.processor.field.JresGetterFieldProcessor;
 import de.plushnikov.intellij.plugin.processor.field.JresGetterFieldProcessor;
 import de.plushnikov.intellij.plugin.thirdparty.LombokUtils;
 import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
@@ -33,11 +36,12 @@ import java.util.List;
  */
 public class JresGetterProcessor extends AbstractClassProcessor {
 
-  private final JresGetterFieldProcessor fieldProcessor;
+  public JresGetterProcessor() {
+    super(PsiMethod.class, LombokClassNames.JRES_GETTER);
+  }
 
-  public JresGetterProcessor(@NotNull JresGetterFieldProcessor getterFieldProcessor) {
-    super(PsiMethod.class, JRESGetter.class);
-    this.fieldProcessor = getterFieldProcessor;
+  private JresGetterFieldProcessor getGetterFieldProcessor() {
+    return ApplicationManager.getApplication().getService(JresGetterFieldProcessor.class);
   }
 
   @Override
@@ -76,6 +80,7 @@ public class JresGetterProcessor extends AbstractClassProcessor {
   public Collection<PsiMethod> createFieldGetters(@NotNull PsiClass psiClass, @NotNull String methodModifier) {
     Collection<PsiMethod> result = new ArrayList<>();
     final Collection<PsiField> getterFields = filterGetterFields(psiClass);
+    JresGetterFieldProcessor fieldProcessor = getGetterFieldProcessor();
     for (PsiField getterField : getterFields) {
       result.add(fieldProcessor.createGetterMethod(getterField, psiClass, methodModifier));
     }
@@ -89,6 +94,7 @@ public class JresGetterProcessor extends AbstractClassProcessor {
     final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
     filterToleratedElements(classMethods);
 
+    JresGetterFieldProcessor fieldProcessor = getGetterFieldProcessor();
     for (PsiField psiField : psiClass.getFields()) {
       boolean createGetter = true;
       PsiModifierList modifierList = psiField.getModifierList();

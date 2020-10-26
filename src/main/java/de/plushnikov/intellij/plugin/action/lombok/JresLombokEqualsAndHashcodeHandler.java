@@ -1,9 +1,9 @@
 package de.plushnikov.intellij.plugin.action.lombok;
 
-import com.hundsun.jres.studio.annotation.JRESEqualsAndHashCode;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiType;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import org.jetbrains.annotations.NotNull;
 
 public class JresLombokEqualsAndHashcodeHandler extends BaseLombokHandler {
@@ -20,6 +20,6 @@ public class JresLombokEqualsAndHashcodeHandler extends BaseLombokHandler {
       hashCodeMethod.delete();
     }
 
-    addAnnotation(psiClass, JRESEqualsAndHashCode.class);
+    addAnnotation(psiClass, LombokClassNames.JRES_EQUALS_AND_HASHCODE);
   }
 }

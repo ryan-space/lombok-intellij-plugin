@@ -1,7 +1,7 @@
 package de.plushnikov.intellij.plugin.action.lombok;
 
-import com.hundsun.jres.studio.annotation.*;
 import com.intellij.psi.PsiClass;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import org.jetbrains.annotations.NotNull;
 
 public class JresLombokDataHandler extends BaseLombokHandler {
@@ -19,12 +19,11 @@ public class JresLombokDataHandler extends BaseLombokHandler {
       handler.processClass(psiClass);
     }
 
-    removeDefaultAnnotation(psiClass, JRESGetter.class);
-    removeDefaultAnnotation(psiClass, JRESSetter.class);
-    removeDefaultAnnotation(psiClass, JRESToString.class);
-    removeDefaultAnnotation(psiClass, JRESEqualsAndHashCode.class);
-
-    addAnnotation(psiClass, JRESData.class);
+    removeDefaultAnnotation(psiClass, LombokClassNames.JRES_GETTER);
+    removeDefaultAnnotation(psiClass, LombokClassNames.JRES_SETTER);
+    removeDefaultAnnotation(psiClass, LombokClassNames.JRES_TO_STRING);
+    removeDefaultAnnotation(psiClass, LombokClassNames.JRES_EQUALS_AND_HASHCODE);
+    addAnnotation(psiClass, LombokClassNames.JRES_DATA);
   }
 
 }

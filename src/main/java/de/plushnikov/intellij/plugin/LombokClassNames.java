@@ -1,5 +1,6 @@
 package de.plushnikov.intellij.plugin;
 
+import com.hundsun.jres.studio.annotation.JRESToString;
 import org.jetbrains.annotations.NonNls;
 
 public interface LombokClassNames {
@@ -13,8 +14,10 @@ public interface LombokClassNames {
   @NonNls String COMMONS_LOG = "lombok.extern.apachecommons.CommonsLog";
   @NonNls String CUSTOM_LOG = "lombok.CustomLog";
   @NonNls String DATA = "lombok.Data";
+  @NonNls String JRES_DATA = "com.hundsun.jres.studio.annotation.JRESData";
   @NonNls String DELEGATE = "lombok.Delegate";
   @NonNls String EQUALS_AND_HASHCODE = "lombok.EqualsAndHashCode";
+  @NonNls String JRES_EQUALS_AND_HASHCODE = "com.hundsun.jres.studio.annotation.JRESEqualsAndHashCode";
   @NonNls String EQUALS_AND_HASHCODE_EXCLUDE = "lombok.EqualsAndHashCode.Exclude";
   @NonNls String EQUALS_AND_HASHCODE_INCLUDE = "lombok.EqualsAndHashCode.Include";
   @NonNls String EXPERIMENTAL_DELEGATE = "lombok.experimental.Delegate";
@@ -25,6 +28,7 @@ public interface LombokClassNames {
   @NonNls String FIELD_NAME_CONSTANTS_INCLUDE = "lombok.experimental.FieldNameConstants.Include";
   @NonNls String FLOGGER = "lombok.extern.flogger.Flogger";
   @NonNls String GETTER = "lombok.Getter";
+  @NonNls String JRES_GETTER = "com.hundsun.jres.studio.annotation.JRESGetter";
   @NonNls String JAVA_LOG = "lombok.extern.java.Log";
   @NonNls String JBOSS_LOG = "lombok.extern.jbosslog.JBossLog";
   @NonNls String LOG_4_J = "lombok.extern.log4j.Log4j";
@@ -34,6 +38,7 @@ public interface LombokClassNames {
   @NonNls String PACKAGE_PRIVATE = "lombok.experimental.PackagePrivate";
   @NonNls String REQUIRED_ARGS_CONSTRUCTOR = "lombok.RequiredArgsConstructor";
   @NonNls String SETTER = "lombok.Setter";
+  @NonNls String JRES_SETTER = "com.hundsun.jres.studio.annotation.JRESSetter";
   @NonNls String SINGULAR = "lombok.Singular";
   @NonNls String SLF_4_J = "lombok.extern.slf4j.Slf4j";
   @NonNls String SNEAKY_THROWS = "lombok.SneakyThrows";
@@ -41,6 +46,7 @@ public interface LombokClassNames {
   @NonNls String SYNCHRONIZED = "lombok.Synchronized";
   @NonNls String TOLERATE = "lombok.experimental.Tolerate";
   @NonNls String TO_STRING = "lombok.ToString";
+  @NonNls String JRES_TO_STRING = "com.hundsun.jres.studio.annotation.JRESToString";
   @NonNls String TO_STRING_EXCLUDE = "lombok.ToString.Exclude";
   @NonNls String TO_STRING_INCLUDE = "lombok.ToString.Include";
   @NonNls String UTILITY_CLASS = "lombok.experimental.UtilityClass";

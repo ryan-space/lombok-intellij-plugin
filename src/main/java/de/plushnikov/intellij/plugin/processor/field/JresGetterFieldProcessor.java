@@ -10,6 +10,7 @@ import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiModifier;
 import com.intellij.psi.PsiModifierList;
 import com.intellij.psi.PsiType;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
 import de.plushnikov.intellij.plugin.psi.LombokLightMethodBuilder;
@@ -34,7 +35,7 @@ import java.util.List;
 public class JresGetterFieldProcessor extends AbstractFieldProcessor {
 
   public JresGetterFieldProcessor() {
-    super(PsiMethod.class, JRESGetter.class);
+    super(PsiMethod.class, LombokClassNames.JRES_GETTER);
   }
 
   protected void generatePsiElements(@NotNull PsiField psiField, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
@@ -138,7 +139,7 @@ public class JresGetterFieldProcessor extends AbstractFieldProcessor {
     PsiModifierList modifierList = methodBuilder.getModifierList();
     copyAnnotations(psiField, modifierList,
       LombokUtils.NON_NULL_PATTERN, LombokUtils.NULLABLE_PATTERN, LombokUtils.DEPRECATED_PATTERN);
-    addOnXAnnotations(PsiAnnotationSearchUtil.findAnnotation(psiField, JRESGetter.class), modifierList, "onMethod");
+    addOnXAnnotations(PsiAnnotationSearchUtil.findAnnotation(psiField, LombokClassNames.GETTER), modifierList, "onMethod");
     return methodBuilder;
   }
 

@@ -1,7 +1,7 @@
 package de.plushnikov.intellij.plugin.action.lombok;
 
-import com.hundsun.jres.studio.annotation.JRESToString;
 import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import org.jetbrains.annotations.NotNull;
 
 public class JresLombokToStringHandler extends BaseLombokHandler {
@@ -14,7 +14,7 @@ public class JresLombokToStringHandler extends BaseLombokHandler {
     if (null != toStringMethod) {
       toStringMethod.delete();
     }
-    addAnnotation(psiClass, JRESToString.class);
+    addAnnotation(psiClass, LombokClassNames.JRES_TO_STRING);
   }
 
 }
