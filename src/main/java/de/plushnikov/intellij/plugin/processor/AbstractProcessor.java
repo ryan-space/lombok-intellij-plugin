@@ -1,21 +1,15 @@
 package de.plushnikov.intellij.plugin.processor;
 
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiModifierList;
-import com.intellij.psi.PsiModifierListOwner;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigDiscovery;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigKey;
 import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
-import lombok.experimental.Tolerate;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.annotation.Annotation;
 import java.util.Collection;
 
 /**
@@ -27,7 +21,7 @@ public abstract class AbstractProcessor implements Processor {
   /**
    * Annotation classes this processor supports
    */
-  private final Class<? extends Annotation>[] supportedAnnotationClasses;
+  private final String[] supportedAnnotationClasses;
   /**
    * Kind of output elements this processor supports
    */
@@ -40,50 +34,17 @@ public abstract class AbstractProcessor implements Processor {
   /**
    * Constructor for all Lombok-Processors
    *  @param supportedClass           kind of output elements this processor supports
-   * @param supportedAnnotationClass annotation this processor supports
+   * @param supportedAnnotationClasses annotations this processor supports
    */
   @SuppressWarnings("unchecked")
   protected AbstractProcessor(@NotNull Class<? extends PsiElement> supportedClass,
-                              @NotNull Class<? extends Annotation> supportedAnnotationClass) {
+                              @NotNull String... supportedAnnotationClasses) {
     this.configDiscovery = ConfigDiscovery.getInstance();
     this.supportedClass = supportedClass;
-    this.supportedAnnotationClasses = new Class[]{supportedAnnotationClass};
+    this.supportedAnnotationClasses = supportedAnnotationClasses;
   }
 
-  /**
-   * Constructor for all Lombok-Processors
-   *  @param supportedClass            kind of output elements this processor supports
-   * @param supportedAnnotationClass  annotation this processor supports
-   * @param equivalentAnnotationClass another equivalent annotation
-   */
-  @SuppressWarnings("unchecked")
-  protected AbstractProcessor(@NotNull Class<? extends PsiElement> supportedClass,
-                              @NotNull Class<? extends Annotation> supportedAnnotationClass,
-                              @NotNull Class<? extends Annotation> equivalentAnnotationClass) {
-    this.configDiscovery = ConfigDiscovery.getInstance();
-    this.supportedClass = supportedClass;
-    this.supportedAnnotationClasses = new Class[]{supportedAnnotationClass, equivalentAnnotationClass};
-  }
-
-  /**
-   * Constructor for all Lombok-Processors
-   * @param supportedClass                  kind of output elements this processor supports
-   * @param supportedAnnotationClass        annotation this processor supports
-   * @param oneEquivalentAnnotationClass    another equivalent annotation
-   * @param secondEquivalentAnnotationClass another equivalent annotation
-   */
-  @SuppressWarnings("unchecked")
-  AbstractProcessor(@NotNull Class<? extends PsiElement> supportedClass,
-                    @NotNull Class<? extends Annotation> supportedAnnotationClass,
-                    @NotNull Class<? extends Annotation> oneEquivalentAnnotationClass,
-                    @NotNull Class<? extends Annotation> secondEquivalentAnnotationClass) {
-    this.configDiscovery = ConfigDiscovery.getInstance();
-    this.supportedClass = supportedClass;
-    this.supportedAnnotationClasses = new Class[]{supportedAnnotationClass, oneEquivalentAnnotationClass, secondEquivalentAnnotationClass};
-  }
-
-  @NotNull
-  public final Class<? extends Annotation>[] getSupportedAnnotationClasses() {
+  public final @NotNull String @NotNull [] getSupportedAnnotationClasses() {
     return supportedAnnotationClasses;
   }
 
@@ -101,7 +62,7 @@ public abstract class AbstractProcessor implements Processor {
   }
 
   protected void filterToleratedElements(@NotNull Collection<? extends PsiModifierListOwner> definedMethods) {
-    definedMethods.removeIf(definedMethod -> PsiAnnotationSearchUtil.isAnnotatedWith(definedMethod, Tolerate.class));
+    definedMethods.removeIf(definedMethod -> PsiAnnotationSearchUtil.isAnnotatedWith(definedMethod, LombokClassNames.TOLERATE));
   }
 
   protected boolean readAnnotationOrConfigProperty(@NotNull PsiAnnotation psiAnnotation, @NotNull PsiClass psiClass,

@@ -1,11 +1,10 @@
 package de.plushnikov.intellij.plugin.processor.clazz.log;
 
-import java.lang.annotation.Annotation;
-import java.util.Collections;
-import java.util.List;
-
 import com.intellij.psi.PsiClass;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Collections;
+import java.util.List;
 
 abstract class AbstractSimpleLogProcessor extends AbstractLogProcessor {
   @NotNull
@@ -14,7 +13,7 @@ abstract class AbstractSimpleLogProcessor extends AbstractLogProcessor {
   private final String loggerInitializer;
 
   AbstractSimpleLogProcessor(
-    @NotNull Class<? extends Annotation> supportedAnnotationClass,
+    @NotNull String supportedAnnotationClass,
     @NotNull String loggerType,
     @NotNull String loggerInitializer
   ) {
@@ -41,7 +40,7 @@ abstract class AbstractTopicSupportingSimpleLogProcessor extends AbstractSimpleL
   private final LoggerInitializerParameter defaultParameter;
 
   AbstractTopicSupportingSimpleLogProcessor(
-    @NotNull Class<? extends Annotation> supportedAnnotationClass,
+    @NotNull String supportedAnnotationClass,
     @NotNull String loggerType,
     @NotNull String loggerInitializer,
     @NotNull LoggerInitializerParameter defaultParameter

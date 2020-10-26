@@ -1,13 +1,8 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifier;
-import com.intellij.psi.PsiModifierList;
-import com.intellij.psi.PsiType;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
 import de.plushnikov.intellij.plugin.processor.field.SetterFieldProcessor;
@@ -16,7 +11,6 @@ import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
 import de.plushnikov.intellij.plugin.util.PsiMethodUtil;
-import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -31,11 +25,12 @@ import java.util.List;
  */
 public class SetterProcessor extends AbstractClassProcessor {
 
-  private final SetterFieldProcessor fieldProcessor;
+  public SetterProcessor() {
+    super(PsiMethod.class, LombokClassNames.SETTER);
+  }
 
-  public SetterProcessor(@NotNull SetterFieldProcessor setterFieldProcessor) {
-    super(PsiMethod.class, Setter.class);
-    this.fieldProcessor = setterFieldProcessor;
+  private SetterFieldProcessor getSetterFieldProcessor() {
+    return ApplicationManager.getApplication().getService(SetterFieldProcessor.class);
   }
 
   @Override
@@ -69,6 +64,7 @@ public class SetterProcessor extends AbstractClassProcessor {
 
     final Collection<PsiField> setterFields = filterSetterFields(psiClass);
 
+    SetterFieldProcessor fieldProcessor = getSetterFieldProcessor();
     for (PsiField setterField : setterFields) {
       result.add(fieldProcessor.createSetterMethod(setterField, psiClass, methodModifier));
     }
@@ -80,6 +76,7 @@ public class SetterProcessor extends AbstractClassProcessor {
     final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
     filterToleratedElements(classMethods);
 
+    SetterFieldProcessor fieldProcessor = getSetterFieldProcessor();
     final Collection<PsiField> setterFields = new ArrayList<>();
     for (PsiField psiField : psiClass.getFields()) {
       boolean createSetter = true;

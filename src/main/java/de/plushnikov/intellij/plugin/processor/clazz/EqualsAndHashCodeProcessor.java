@@ -1,9 +1,11 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
 import com.intellij.codeInspection.LocalQuickFix;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTypesUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigKey;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
@@ -15,9 +17,6 @@ import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
 import de.plushnikov.intellij.plugin.util.PsiMethodUtil;
-import lombok.EqualsAndHashCode;
-import lombok.Value;
-import lombok.experimental.NonFinal;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -38,14 +37,15 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
   private static final String CAN_EQUAL_METHOD_NAME = "canEqual";
 
   private static final String INCLUDE_ANNOTATION_METHOD = "replaces";
-  private static final String EQUALSANDHASHCODE_INCLUDE = EqualsAndHashCode.Include.class.getCanonicalName();
-  private static final String EQUALSANDHASHCODE_EXCLUDE = EqualsAndHashCode.Exclude.class.getCanonicalName();
+  private static final String EQUALSANDHASHCODE_INCLUDE = LombokClassNames.EQUALS_AND_HASHCODE_INCLUDE;
+  private static final String EQUALSANDHASHCODE_EXCLUDE = LombokClassNames.EQUALS_AND_HASHCODE_EXCLUDE;
 
-  private final EqualsAndHashCodeToStringHandler handler;
+  public EqualsAndHashCodeProcessor() {
+    super(PsiMethod.class, LombokClassNames.EQUALS_AND_HASHCODE);
+  }
 
-  public EqualsAndHashCodeProcessor(@NotNull EqualsAndHashCodeToStringHandler equalsAndHashCodeToStringHandler) {
-    super(PsiMethod.class, EqualsAndHashCode.class);
-    handler = equalsAndHashCodeToStringHandler;
+  private EqualsAndHashCodeToStringHandler getEqualsAndHashCodeToStringHandler() {
+    return ApplicationManager.getApplication().getService(EqualsAndHashCodeToStringHandler.class);
   }
 
   @Override
@@ -112,17 +112,16 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
     return result;
   }
 
-  private boolean validateExistingMethods(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
+  private void validateExistingMethods(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
     if (hasOneOfMethodsDefined(psiClass)) {
       builder.addWarning("Not generating equals and hashCode: A method with one of those names already exists. (Either both or none of these methods will be generated).");
-      return false;
     }
-    return true;
   }
 
   private boolean hasOneOfMethodsDefined(@NotNull PsiClass psiClass) {
     final Collection<PsiMethod> classMethodsIntern = PsiClassUtil.collectClassMethodsIntern(psiClass);
-    return PsiMethodUtil.hasMethodByName(classMethodsIntern, EQUALS_METHOD_NAME, HASH_CODE_METHOD_NAME);
+    return PsiMethodUtil.hasMethodByName(classMethodsIntern, EQUALS_METHOD_NAME, 1) ||
+      PsiMethodUtil.hasMethodByName(classMethodsIntern, HASH_CODE_METHOD_NAME, 0);
   }
 
   protected void generatePsiElements(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
@@ -134,7 +133,8 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
       return Collections.emptyList();
     }
 
-    final Collection<MemberInfo> memberInfos = handler.filterFields(psiClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD);
+    final Collection<MemberInfo> memberInfos = getEqualsAndHashCodeToStringHandler()
+      .filterFields(psiClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD);
 
     final boolean shouldGenerateCanEqual = shouldGenerateCanEqual(psiClass);
 
@@ -142,7 +142,7 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
     result.add(createEqualsMethod(psiClass, psiAnnotation, shouldGenerateCanEqual, memberInfos));
 
     final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(psiClass);
-    if (shouldGenerateCanEqual && !PsiMethodUtil.hasMethodByName(classMethods, CAN_EQUAL_METHOD_NAME)) {
+    if (shouldGenerateCanEqual && !PsiMethodUtil.hasMethodByName(classMethods, CAN_EQUAL_METHOD_NAME, 1)) {
       result.add(createCanEqualMethod(psiClass, psiAnnotation));
     }
 
@@ -157,7 +157,7 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
     }
 
     final boolean isFinal = psiClass.hasModifierProperty(PsiModifier.FINAL) ||
-      (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, Value.class) && PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, NonFinal.class));
+      (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, LombokClassNames.VALUE) && PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.NON_FINAL));
     return !isFinal;
   }
 
@@ -225,6 +225,7 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
       builder.append("if (!super.equals(o)) return false;\n");
     }
 
+    EqualsAndHashCodeToStringHandler handler = getEqualsAndHashCodeToStringHandler();
     for (MemberInfo memberInfo : memberInfos) {
       final String memberAccessor = handler.getMemberAccessorName(memberInfo, doNotUseGetters, psiClass);
 
@@ -278,6 +279,7 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
       builder.append("1;\n");
     }
 
+    EqualsAndHashCodeToStringHandler handler = getEqualsAndHashCodeToStringHandler();
     for (MemberInfo memberInfo : memberInfos) {
       final String memberAccessor = handler.getMemberAccessorName(memberInfo, doNotUseGetters, psiClass);
       final String memberName = memberInfo.getMethod() == null ? memberInfo.getName() : "$" + memberInfo.getName();
@@ -326,7 +328,7 @@ public class EqualsAndHashCodeProcessor extends AbstractClassProcessor {
     final PsiClass containingClass = psiField.getContainingClass();
     if (null != containingClass) {
       final String psiFieldName = StringUtil.notNullize(psiField.getName());
-      if (handler.filterFields(containingClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD).stream()
+      if (getEqualsAndHashCodeToStringHandler().filterFields(containingClass, psiAnnotation, true, INCLUDE_ANNOTATION_METHOD).stream()
         .map(MemberInfo::getName).anyMatch(psiFieldName::equals)) {
         return LombokPsiElementUsage.READ;
       }

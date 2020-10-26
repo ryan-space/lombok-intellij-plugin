@@ -1,38 +1,25 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifier;
+import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigKey;
 import de.plushnikov.intellij.plugin.problem.LombokProblem;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.problem.ProblemEmptyBuilder;
 import de.plushnikov.intellij.plugin.problem.ProblemNewBuilder;
 import de.plushnikov.intellij.plugin.processor.AbstractProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.constructor.AbstractConstructorClassProcessor;
 import de.plushnikov.intellij.plugin.psi.LombokLightClassBuilder;
 import de.plushnikov.intellij.plugin.quickfix.PsiQuickFixFactory;
 import de.plushnikov.intellij.plugin.thirdparty.LombokUtils;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.lang.annotation.Annotation;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -44,13 +31,13 @@ import java.util.stream.Collectors;
 public abstract class AbstractClassProcessor extends AbstractProcessor implements ClassProcessor {
 
   protected AbstractClassProcessor(@NotNull Class<? extends PsiElement> supportedClass,
-                                   @NotNull Class<? extends Annotation> supportedAnnotationClass) {
+                                   @NotNull String supportedAnnotationClass) {
     super(supportedClass, supportedAnnotationClass);
   }
 
   protected AbstractClassProcessor(@NotNull Class<? extends PsiElement> supportedClass,
-                                   @NotNull Class<? extends Annotation> supportedAnnotationClass,
-                                   @NotNull Class<? extends Annotation> equivalentAnnotationClass) {
+                                   @NotNull String supportedAnnotationClass,
+                                   @NotNull String equivalentAnnotationClass) {
     super(supportedClass, supportedAnnotationClass, equivalentAnnotationClass);
   }
 
@@ -169,19 +156,14 @@ public abstract class AbstractClassProcessor extends AbstractProcessor implement
     return result;
   }
 
-  boolean shouldGenerateNoArgsConstructor(@NotNull PsiClass psiClass, @NotNull AbstractConstructorClassProcessor argsConstructorProcessor) {
-    boolean result = configDiscovery.getBooleanLombokConfigProperty(ConfigKey.NO_ARGS_CONSTRUCTOR_EXTRA_PRIVATE, psiClass);
+  boolean shouldGenerateExtraNoArgsConstructor(@NotNull PsiClass psiClass) {
+    boolean result = !PsiClassUtil.hasSuperClass(psiClass);
     if (result) {
-      result = !PsiClassUtil.hasSuperClass(psiClass);
+      result = configDiscovery.getBooleanLombokConfigProperty(ConfigKey.NO_ARGS_CONSTRUCTOR_EXTRA_PRIVATE, psiClass);
     }
     if (result) {
-      result = PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, NoArgsConstructor.class);
-    }
-    if (result && PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, AllArgsConstructor.class)) {
-      result = argsConstructorProcessor.getAllFields(psiClass).isEmpty();
-    }
-    if (result && PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, RequiredArgsConstructor.class)) {
-      result = argsConstructorProcessor.getRequiredFields(psiClass).isEmpty();
+      result = PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.NO_ARGS_CONSTRUCTOR, LombokClassNames.ALL_ARGS_CONSTRUCTOR,
+                                                          LombokClassNames.REQUIRED_ARGS_CONSTRUCTOR);
     }
     return result;
   }

@@ -1,11 +1,7 @@
 package de.plushnikov.intellij.plugin.action.lombok;
 
 import com.intellij.psi.PsiClass;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import org.jetbrains.annotations.NotNull;
 
 public class LombokDataHandler extends BaseLombokHandler {
@@ -23,12 +19,11 @@ public class LombokDataHandler extends BaseLombokHandler {
       handler.processClass(psiClass);
     }
 
-    removeDefaultAnnotation(psiClass, Getter.class);
-    removeDefaultAnnotation(psiClass, Setter.class);
-    removeDefaultAnnotation(psiClass, ToString.class);
-    removeDefaultAnnotation(psiClass, EqualsAndHashCode.class);
-
-    addAnnotation(psiClass, Data.class);
+    removeDefaultAnnotation(psiClass, LombokClassNames.GETTER);
+    removeDefaultAnnotation(psiClass, LombokClassNames.SETTER);
+    removeDefaultAnnotation(psiClass, LombokClassNames.TO_STRING);
+    removeDefaultAnnotation(psiClass, LombokClassNames.EQUALS_AND_HASHCODE);
+    addAnnotation(psiClass, LombokClassNames.DATA);
   }
 
 }

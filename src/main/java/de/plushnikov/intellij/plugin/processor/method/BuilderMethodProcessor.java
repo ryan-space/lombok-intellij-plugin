@@ -1,14 +1,15 @@
 package de.plushnikov.intellij.plugin.processor.method;
 
-import com.intellij.ide.util.PropertiesComponent;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiMethod;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.handler.BuilderHandler;
 import de.plushnikov.intellij.plugin.settings.ProjectSettings;
-import lombok.Builder;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -22,16 +23,13 @@ import java.util.List;
  */
 public class BuilderMethodProcessor extends AbstractMethodProcessor {
 
-  private final BuilderHandler builderHandler;
-
-  public BuilderMethodProcessor(@NotNull BuilderHandler builderHandler) {
-    super(PsiMethod.class, Builder.class);
-    this.builderHandler = builderHandler;
+  public BuilderMethodProcessor() {
+    super(PsiMethod.class, LombokClassNames.BUILDER);
   }
 
   @Override
-  public boolean isEnabled(@NotNull PropertiesComponent propertiesComponent) {
-    return ProjectSettings.isEnabled(propertiesComponent, ProjectSettings.IS_BUILDER_ENABLED);
+  public boolean isEnabled(@NotNull Project project) {
+    return ProjectSettings.isEnabled(project, ProjectSettings.IS_BUILDER_ENABLED);
   }
 
   @Override
@@ -42,6 +40,7 @@ public class BuilderMethodProcessor extends AbstractMethodProcessor {
 
   protected void processIntern(@NotNull PsiMethod psiMethod, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
     final PsiClass psiClass = psiMethod.getContainingClass();
+    final BuilderHandler builderHandler = ApplicationManager.getApplication().getService(BuilderHandler.class);
     if (null != psiClass) {
 
       PsiClass builderClass = builderHandler.getExistInnerBuilderClass(psiClass, psiMethod, psiAnnotation).orElse(null);
@@ -49,6 +48,9 @@ public class BuilderMethodProcessor extends AbstractMethodProcessor {
         // have to create full class (with all methods) here, or auto completion doesn't work
         builderClass = builderHandler.createBuilderClass(psiClass, psiMethod, psiAnnotation);
       }
+
+      target.addAll(
+        builderHandler.createBuilderDefaultProviderMethodsIfNecessary(psiClass, null, builderClass, psiAnnotation));
 
       builderHandler.createBuilderMethodIfNecessary(psiClass, psiMethod, builderClass, psiAnnotation)
         .ifPresent(target::add);

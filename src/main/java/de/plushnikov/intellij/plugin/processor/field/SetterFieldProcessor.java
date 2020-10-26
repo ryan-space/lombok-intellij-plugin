@@ -1,26 +1,14 @@
 package de.plushnikov.intellij.plugin.processor.field;
 
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifier;
-import com.intellij.psi.PsiModifierList;
-import com.intellij.psi.PsiParameter;
-import com.intellij.psi.PsiType;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
 import de.plushnikov.intellij.plugin.psi.LombokLightMethodBuilder;
 import de.plushnikov.intellij.plugin.quickfix.PsiQuickFixFactory;
 import de.plushnikov.intellij.plugin.thirdparty.LombokUtils;
-import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
-import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
-import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
-import de.plushnikov.intellij.plugin.util.PsiClassUtil;
-import de.plushnikov.intellij.plugin.util.PsiMethodUtil;
-import lombok.Setter;
+import de.plushnikov.intellij.plugin.util.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -35,7 +23,7 @@ import java.util.List;
 public class SetterFieldProcessor extends AbstractFieldProcessor {
 
   public SetterFieldProcessor() {
-    super(PsiMethod.class, Setter.class);
+    super(PsiMethod.class, LombokClassNames.SETTER);
   }
 
   @Override
@@ -90,7 +78,7 @@ public class SetterFieldProcessor extends AbstractFieldProcessor {
 
       for (String methodName : methodNames) {
         if (PsiMethodUtil.hasSimilarMethod(classMethods, methodName, 1)) {
-          final String setterMethodName = getSetterName(psiField, isBoolean);
+          final String setterMethodName = LombokUtils.getSetterName(psiField, isBoolean);
 
           builder.addWarning("Not generated '%s'(): A method with similar name '%s' already exists", setterMethodName, methodName);
           result = false;
@@ -114,19 +102,13 @@ public class SetterFieldProcessor extends AbstractFieldProcessor {
     return LombokUtils.toAllSetterNames(accessorsInfo, psiField.getName(), isBoolean);
   }
 
-  private String getSetterName(@NotNull PsiField psiField, boolean isBoolean) {
-    final AccessorsInfo accessorsInfo = AccessorsInfo.build(psiField);
-
-    return LombokUtils.toSetterName(accessorsInfo, psiField.getName(), isBoolean);
-  }
-
   @NotNull
   public PsiMethod createSetterMethod(@NotNull PsiField psiField, @NotNull PsiClass psiClass, @NotNull String methodModifier) {
     final String fieldName = psiField.getName();
     final PsiType psiFieldType = psiField.getType();
-    final PsiAnnotation setterAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiField, Setter.class);
+    final PsiAnnotation setterAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiField, LombokClassNames.SETTER);
 
-    final String methodName = getSetterName(psiField, PsiType.BOOLEAN.equals(psiFieldType));
+    final String methodName = LombokUtils.getSetterName(psiField);
 
     PsiType returnType = getReturnType(psiField);
     LombokLightMethodBuilder methodBuilder = new LombokLightMethodBuilder(psiField.getManager(), methodName)

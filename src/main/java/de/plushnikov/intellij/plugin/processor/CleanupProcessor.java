@@ -1,18 +1,12 @@
 package de.plushnikov.intellij.plugin.processor;
 
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiClassType;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiLocalVariable;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiType;
+import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.LombokProblem;
 import de.plushnikov.intellij.plugin.problem.ProblemNewBuilder;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
-import lombok.Cleanup;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -26,7 +20,7 @@ import java.util.Collections;
 public class CleanupProcessor extends AbstractProcessor {
 
   public CleanupProcessor() {
-    super(PsiElement.class, Cleanup.class);
+    super(PsiElement.class, LombokClassNames.CLEANUP);
   }
 
   @NotNull
