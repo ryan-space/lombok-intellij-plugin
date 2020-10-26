@@ -3,12 +3,7 @@ package de.plushnikov.intellij.plugin.lombokconfig;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.PathUtil;
-import com.intellij.util.indexing.DataIndexer;
-import com.intellij.util.indexing.DefaultFileTypeSpecificInputFilter;
-import com.intellij.util.indexing.FileBasedIndex;
-import com.intellij.util.indexing.FileBasedIndexExtension;
-import com.intellij.util.indexing.FileContent;
-import com.intellij.util.indexing.ID;
+import com.intellij.util.indexing.*;
 import com.intellij.util.io.DataExternalizer;
 import com.intellij.util.io.KeyDescriptor;
 import de.plushnikov.intellij.plugin.language.LombokConfigFileType;
@@ -157,6 +152,12 @@ public class LombokConfigIndex extends FileBasedIndexExtension<ConfigIndexKey, C
   @Override
   public boolean dependsOnFileContent() {
     return true;
+  }
+
+  // TODO: make this index shareable IDEA-253057. Avoid using canonical paths.
+ // @Override
+  public boolean canBeShared() {
+    return false;
   }
 
   @Override

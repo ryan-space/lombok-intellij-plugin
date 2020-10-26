@@ -1,14 +1,11 @@
 package de.plushnikov.intellij.plugin.processor.clazz.builder;
 
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.processor.handler.BuilderHandler;
 import de.plushnikov.intellij.plugin.processor.handler.BuilderInfo;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
-import lombok.Builder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,8 +20,12 @@ import java.util.stream.Collectors;
  */
 public class BuilderPreDefinedInnerClassFieldProcessor extends AbstractBuilderPreDefinedInnerClassProcessor {
 
-  public BuilderPreDefinedInnerClassFieldProcessor(@NotNull BuilderHandler builderHandler) {
-    super(builderHandler, PsiField.class, Builder.class);
+  public BuilderPreDefinedInnerClassFieldProcessor() {
+    super(PsiField.class, LombokClassNames.BUILDER);
+  }
+
+  protected BuilderHandler getBuilderHandler() {
+    return ApplicationManager.getApplication().getService(BuilderHandler.class);
   }
 
   @Override
@@ -33,7 +34,7 @@ public class BuilderPreDefinedInnerClassFieldProcessor extends AbstractBuilderPr
       .map(PsiField::getName)
       .collect(Collectors.toSet());
 
-    final List<BuilderInfo> builderInfos = builderHandler.createBuilderInfos(psiAnnotation, psiParentClass, psiParentMethod, psiBuilderClass);
+    final List<BuilderInfo> builderInfos = getBuilderHandler().createBuilderInfos(psiAnnotation, psiParentClass, psiParentMethod, psiBuilderClass);
     return builderInfos.stream()
       .filter(info -> info.notAlreadyExistingField(existedFieldNames))
       .map(BuilderInfo::renderBuilderFields)

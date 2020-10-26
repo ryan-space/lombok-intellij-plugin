@@ -3,16 +3,15 @@ package de.plushnikov.intellij.plugin.processor.handler;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.light.LightTypeParameterBuilder;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.clazz.ToStringProcessor;
-import de.plushnikov.intellij.plugin.processor.clazz.constructor.NoArgsConstructorProcessor;
 import de.plushnikov.intellij.plugin.psi.LombokLightClassBuilder;
 import de.plushnikov.intellij.plugin.psi.LombokLightMethodBuilder;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
 import de.plushnikov.intellij.plugin.util.PsiMethodUtil;
-import lombok.experimental.Tolerate;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -31,10 +30,6 @@ public class SuperBuilderHandler extends BuilderHandler {
   private static final String INSTANCE_VARIABLE_NAME = "instance";
   private static final String BUILDER_VARIABLE_NAME = "b";
 
-  public SuperBuilderHandler(@NotNull ToStringProcessor toStringProcessor, @NotNull NoArgsConstructorProcessor noArgsConstructorProcessor) {
-    super(toStringProcessor, noArgsConstructorProcessor);
-  }
-
   @Override
   public boolean validateExistingBuilderClass(@NotNull String builderClassName, @NotNull PsiClass psiClass, @NotNull ProblemBuilder problemBuilder) {
     final Optional<PsiClass> existingInnerBuilderClass = PsiClassUtil.getInnerClassInternByName(psiClass, builderClassName);
@@ -49,7 +44,7 @@ public class SuperBuilderHandler extends BuilderHandler {
         .filter(psiInnerClass -> psiInnerClass.hasModifierProperty(PsiModifier.STATIC))
         .filter(psiInnerClass -> psiInnerClass.hasModifierProperty(PsiModifier.ABSTRACT));
 
-      if (!isStaticAndAbstract.isPresent()) {
+      if (isStaticAndAbstract.isEmpty()) {
         problemBuilder.addError("Existing Builder must be an abstract static inner class.");
         return false;
       }
@@ -271,7 +266,7 @@ public class SuperBuilderHandler extends BuilderHandler {
     final Collection<PsiMethod> result = new ArrayList<>();
 
     final Collection<String> existedMethodNames = PsiClassUtil.collectClassMethodsIntern(baseClassBuilder).stream()
-      .filter(psiMethod -> PsiAnnotationSearchUtil.isNotAnnotatedWith(psiMethod, Tolerate.class))
+      .filter(psiMethod -> PsiAnnotationSearchUtil.isNotAnnotatedWith(psiMethod, LombokClassNames.TOLERATE))
       .map(PsiMethod::getName).collect(Collectors.toSet());
 
     // create builder methods
@@ -348,7 +343,7 @@ public class SuperBuilderHandler extends BuilderHandler {
       result.add(buildMethod);
     }
 
-    if (!existedMethodNames.contains(ToStringProcessor.METHOD_NAME)) {
+    if (!existedMethodNames.contains(ToStringProcessor.TO_STRING_METHOD_NAME)) {
       // create 'toString' method
       result.add(createToStringMethod(psiAnnotation, baseClassBuilder, forceCallSuper));
     }

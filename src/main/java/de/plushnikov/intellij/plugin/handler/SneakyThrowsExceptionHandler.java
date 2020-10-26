@@ -1,22 +1,19 @@
 package de.plushnikov.intellij.plugin.handler;
 
 import com.intellij.codeInsight.CustomExceptionHandler;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiClassType;
-import com.intellij.psi.PsiCodeBlock;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifierListOwner;
-import com.intellij.psi.PsiType;
+import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
-import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 
 public class SneakyThrowsExceptionHandler extends CustomExceptionHandler {
 
@@ -24,15 +21,34 @@ public class SneakyThrowsExceptionHandler extends CustomExceptionHandler {
 
   @Override
   public boolean isHandled(@Nullable PsiElement element, @NotNull PsiClassType exceptionType, PsiElement topElement) {
-    if (!(topElement instanceof PsiCodeBlock)) {
+    PsiElement parent = PsiTreeUtil.getParentOfType(element, PsiLambdaExpression.class, PsiTryStatement.class, PsiMethod.class);
+    if (parent instanceof PsiLambdaExpression) {
+      // lambda it's another scope, @SneakyThrows annotation can't neglect exceptions in lambda only on method, constructor
+      return false;
+    } else if (parent instanceof PsiTryStatement && isHandledByTryCatch(exceptionType, (PsiTryStatement) parent)) {
+      // that exception MAY be already handled by regular try-catch statement
+      return false;
+    }
+
+    if (topElement instanceof PsiTryStatement && isHandledByTryCatch(exceptionType, (PsiTryStatement) topElement)) {
+      // that exception MAY be already handled by regular try-catch statement (don't forget about nested try-catch)
+      return false;
+    } else if (!(topElement instanceof PsiCodeBlock)) {
       final PsiMethod psiMethod = PsiTreeUtil.getParentOfType(element, PsiMethod.class);
       return psiMethod != null && isExceptionHandled(psiMethod, exceptionType);
     }
     return false;
   }
 
+  private boolean isHandledByTryCatch(@NotNull PsiClassType exceptionType, PsiTryStatement topElement) {
+    List<PsiType> caughtExceptions = Stream.of(topElement.getCatchBlockParameters())
+      .map(PsiParameter::getType)
+      .collect(Collectors.toList());
+    return isExceptionHandled(exceptionType, caughtExceptions);
+  }
+
   private boolean isExceptionHandled(@NotNull PsiModifierListOwner psiModifierListOwner, PsiClassType exceptionClassType) {
-    final PsiAnnotation psiAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiModifierListOwner, SneakyThrows.class);
+    final PsiAnnotation psiAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiModifierListOwner, LombokClassNames.SNEAKY_THROWS);
     if (psiAnnotation == null) {
       return false;
     }

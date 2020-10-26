@@ -1,32 +1,24 @@
 package de.plushnikov.intellij.plugin.extension;
 
+import com.intellij.codeInsight.daemon.JavaErrorBundle;
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.codeInsight.daemon.impl.HighlightInfoFilter;
 import com.intellij.codeInsight.intention.AddAnnotationFix;
 import com.intellij.lang.annotation.HighlightSeverity;
 import com.intellij.openapi.editor.colors.CodeInsightColors;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
-import com.intellij.psi.PsiClassInitializer;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiLambdaExpression;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiMethodReferenceExpression;
-import com.intellij.psi.PsiModifierListOwner;
+import com.intellij.openapi.project.Project;
+import com.intellij.psi.*;
 import com.intellij.psi.util.PsiTreeUtil;
-import de.plushnikov.intellij.plugin.handler.BuilderHandler;
-import de.plushnikov.intellij.plugin.handler.EqualsAndHashCodeCallSuperHandler;
-import de.plushnikov.intellij.plugin.handler.LazyGetterHandler;
-import de.plushnikov.intellij.plugin.handler.OnXAnnotationHandler;
-import lombok.SneakyThrows;
+import de.plushnikov.intellij.plugin.LombokClassNames;
+import de.plushnikov.intellij.plugin.activity.LombokProjectValidatorActivity;
+import de.plushnikov.intellij.plugin.handler.*;
+import de.plushnikov.intellij.plugin.settings.ProjectSettings;
+import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 
@@ -56,6 +48,12 @@ public class LombokHighlightErrorFilter implements HighlightInfoFilter {
   @Override
   public boolean accept(@NotNull HighlightInfo highlightInfo, @Nullable PsiFile file) {
     if (null == file) {
+      return true;
+    }
+
+    Project project = file.getProject();
+    if (!ProjectSettings.isLombokEnabledInProject(project) ||
+        !LombokProjectValidatorActivity.hasLombokLibrary(project)) {
       return true;
     }
 
@@ -117,7 +115,7 @@ public class LombokHighlightErrorFilter implements HighlightInfoFilter {
 
         // applicable only for methods
         if (importantParent instanceof PsiMethod) {
-          AddAnnotationFix fix = new AddAnnotationFix(SneakyThrows.class.getCanonicalName(), (PsiModifierListOwner) importantParent);
+          AddAnnotationFix fix = new AddAnnotationFix(LombokClassNames.SNEAKY_THROWS, (PsiModifierListOwner) importantParent);
           highlightInfo.registerFix(fix, null, null, null, null);
         }
       }
@@ -150,6 +148,18 @@ public class LombokHighlightErrorFilter implements HighlightInfoFilter {
       @Override
       public boolean accept(@NotNull PsiElement highlightedElement) {
         return !LazyGetterHandler.isLazyGetterHandled(highlightedElement);
+      }
+    },
+
+    CONSTANT_EXPRESSION_REQUIRED(HighlightSeverity.ERROR, CodeInsightColors.ERRORS_ATTRIBUTES) {
+      @Override
+      public boolean descriptionCheck(@Nullable String description) {
+        return JavaErrorBundle.message("constant.expression.required").equals(description);
+      }
+
+      @Override
+      public boolean accept(@NotNull PsiElement highlightedElement) {
+        return !FieldNameConstantsHandler.isFiledNameConstants(highlightedElement);
       }
     },
 
@@ -196,6 +206,36 @@ public class LombokHighlightErrorFilter implements HighlightInfoFilter {
       public boolean accept(@NotNull PsiElement highlightedElement) {
         return !EqualsAndHashCodeCallSuperHandler.isEqualsAndHashCodeCallSuperDefault(highlightedElement);
       }
+    },
+
+    /**
+     * Handles warnings that are related to Builder.Default cause.
+     * The final fields that are marked with Builder.Default contains only possible value because user can set another value during the creation of the object.
+     */
+    CONSTANT_CONDITIONS_DEFAULT_BUILDER_CAN_BE_SIMPLIFIED(HighlightSeverity.WARNING, CodeInsightColors.WARNINGS_ATTRIBUTES) {
+      private final Pattern patternCanBeSimplified = Pattern.compile("'.+' can be simplified to '.+'");
+      private final Pattern patternIsAlways = Pattern.compile("Condition '.+' is always '(true|false)'");
+
+      @Override
+      public boolean descriptionCheck(@Nullable String description) {
+        return description != null
+          && (patternCanBeSimplified.matcher(description).matches() || patternIsAlways.matcher(description).matches());
+      }
+
+      @Override
+      public boolean accept(@NotNull PsiElement highlightedElement) {
+        PsiReferenceExpression parent = PsiTreeUtil.getParentOfType(highlightedElement, PsiReferenceExpression.class);
+        if (parent == null) {
+          return true;
+        }
+
+        PsiElement resolve = parent.resolve();
+        if (!(resolve instanceof PsiField)) {
+          return true;
+        }
+
+        return !PsiAnnotationSearchUtil.isAnnotatedWith((PsiField) resolve, LombokClassNames.BUILDER_DEFAULT);
+      }
     };
 
     private final HighlightSeverity severity;
@@ -206,8 +246,16 @@ public class LombokHighlightErrorFilter implements HighlightInfoFilter {
       this.key = key;
     }
 
+    /**
+     * @param description of the current highlighted element
+     * @return true if the filter can handle current type of the highlight info with that kind of the description
+     */
     abstract public boolean descriptionCheck(@Nullable String description);
 
+    /**
+     * @param highlightedElement the deepest element (it's the leaf element in PSI tree where the highlight was occurred)
+     * @return false if the highlight should be suppressed
+     */
     abstract public boolean accept(@NotNull PsiElement highlightedElement);
   }
 }

@@ -1,14 +1,9 @@
 package de.plushnikov.intellij.plugin.processor.field;
 
 import com.intellij.lang.java.JavaLanguage;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifier;
-import com.intellij.psi.PsiModifierList;
-import com.intellij.psi.PsiType;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
 import de.plushnikov.intellij.plugin.processor.clazz.constructor.RequiredArgsConstructorProcessor;
@@ -20,13 +15,6 @@ import de.plushnikov.intellij.plugin.util.LombokProcessorUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
 import de.plushnikov.intellij.plugin.util.PsiMethodUtil;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
-import lombok.Value;
-import lombok.With;
-import lombok.experimental.Wither;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,11 +24,12 @@ import java.util.List;
 
 public class WitherFieldProcessor extends AbstractFieldProcessor {
 
-  private final RequiredArgsConstructorProcessor requiredArgsConstructorProcessor;
+  public WitherFieldProcessor() {
+    super(PsiMethod.class, LombokClassNames.WITHER, LombokClassNames.WITH);
+  }
 
-  public WitherFieldProcessor(@NotNull RequiredArgsConstructorProcessor requiredArgsConstructorProcessor) {
-    super(PsiMethod.class, Wither.class, With.class);
-    this.requiredArgsConstructorProcessor = requiredArgsConstructorProcessor;
+  private RequiredArgsConstructorProcessor getRequiredArgsConstructorProcessor() {
+    return ApplicationManager.getApplication().getService(RequiredArgsConstructorProcessor.class);
   }
 
   @Override
@@ -103,7 +92,7 @@ public class WitherFieldProcessor extends AbstractFieldProcessor {
   private boolean validIsWitherUnique(@NotNull PsiField psiField, @NotNull final ProblemBuilder builder) {
     final PsiClass fieldContainingClass = psiField.getContainingClass();
     final String psiFieldName = psiField.getName();
-    if (psiFieldName != null && fieldContainingClass != null) {
+    if (fieldContainingClass != null) {
       final Collection<PsiMethod> classMethods = PsiClassUtil.collectClassMethodsIntern(fieldContainingClass);
 
       final AccessorsInfo accessorsInfo = buildAccessorsInfo(psiField);
@@ -120,14 +109,14 @@ public class WitherFieldProcessor extends AbstractFieldProcessor {
 
   @SuppressWarnings("unchecked")
   public boolean validConstructor(@NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
-    if (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, AllArgsConstructor.class, Value.class, Builder.class)) {
+    if (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, LombokClassNames.ALL_ARGS_CONSTRUCTOR, LombokClassNames.VALUE, LombokClassNames.BUILDER)) {
       return true;
     }
 
     final Collection<PsiField> constructorParameters = filterFields(psiClass);
 
-    if (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, RequiredArgsConstructor.class, Data.class)) {
-      final Collection<PsiField> requiredConstructorParameters = requiredArgsConstructorProcessor.getRequiredFields(psiClass);
+    if (PsiAnnotationSearchUtil.isAnnotatedWith(psiClass, LombokClassNames.REQUIRED_ARGS_CONSTRUCTOR, LombokClassNames.DATA)) {
+      final Collection<PsiField> requiredConstructorParameters = getRequiredArgsConstructorProcessor().getRequiredFields(psiClass);
       if (constructorParameters.size() == requiredConstructorParameters.size()) {
         return true;
       }
@@ -185,7 +174,7 @@ public class WitherFieldProcessor extends AbstractFieldProcessor {
         .withNavigationElement(psiField)
         .withModifier(methodModifier);
 
-      PsiAnnotation witherAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiField, Wither.class, With.class);
+      PsiAnnotation witherAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiField, LombokClassNames.WITHER, LombokClassNames.WITH);
       addOnXAnnotations(witherAnnotation, methodBuilder.getModifierList(), "onMethod");
 
       final LombokLightParameter methodParameter = new LombokLightParameter(psiFieldName, psiFieldType, methodBuilder, JavaLanguage.INSTANCE);

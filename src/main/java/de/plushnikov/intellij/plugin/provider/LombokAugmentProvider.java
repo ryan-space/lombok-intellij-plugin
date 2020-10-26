@@ -1,17 +1,11 @@
 package de.plushnikov.intellij.plugin.provider;
 
-import com.intellij.openapi.components.ServiceManager;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.RecursionGuard;
 import com.intellij.openapi.util.RecursionManager;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifierList;
-import com.intellij.psi.PsiType;
-import com.intellij.psi.PsiTypeElement;
+import com.intellij.psi.*;
 import com.intellij.psi.augment.PsiAugmentProvider;
 import com.intellij.psi.impl.source.PsiExtensibleClass;
 import com.intellij.psi.util.CachedValueProvider;
@@ -24,12 +18,7 @@ import de.plushnikov.intellij.plugin.settings.ProjectSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Provides support for lombok generated elements
@@ -46,7 +35,7 @@ public class LombokAugmentProvider extends PsiAugmentProvider {
     log.debug("LombokAugmentProvider created");
 
     modifierProcessors = LombokProcessorManager.getLombokModifierProcessors();
-    valProcessor = ServiceManager.getService(ValProcessor.class);
+    valProcessor = ApplicationManager.getApplication().getService(ValProcessor.class);
   }
 
   @NotNull
@@ -63,6 +52,17 @@ public class LombokAugmentProvider extends PsiAugmentProvider {
     }
 
     return result;
+  }
+
+  /**
+   * This method should be available in the next IntelliJ 203 Release
+   */
+  @Override
+  public boolean canInferType(@NotNull PsiTypeElement typeElement) {
+    if (!valProcessor.isEnabled(typeElement.getProject())) {
+      return false;
+    }
+    return valProcessor.canInferType(typeElement);
   }
 
   @Nullable
@@ -82,10 +82,6 @@ public class LombokAugmentProvider extends PsiAugmentProvider {
       return emptyResult;
     }
 
-    // Don't filter !isPhysical elements or code auto completion will not work
-    if (!element.isValid()) {
-      return emptyResult;
-    }
     final PsiClass psiClass = (PsiClass) element;
     // Skip processing of Annotations and Interfaces
     if (psiClass.isAnnotationType() || psiClass.isInterface()) {
@@ -146,7 +142,7 @@ public class LombokAugmentProvider extends PsiAugmentProvider {
     @Nullable
     @Override
     public Result<List<Psi>> compute() {
-//      return compute2();
+//      return computeIntern();
       return recursionGuard.doPreventingRecursion(psiClass, true, this::computeIntern);
     }
 

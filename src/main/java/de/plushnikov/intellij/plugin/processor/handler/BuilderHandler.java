@@ -1,8 +1,10 @@
 package de.plushnikov.intellij.plugin.processor.handler;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.lombokconfig.ConfigDiscovery;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.processor.clazz.ToStringProcessor;
@@ -12,9 +14,6 @@ import de.plushnikov.intellij.plugin.processor.handler.singular.SingularHandlerF
 import de.plushnikov.intellij.plugin.psi.LombokLightClassBuilder;
 import de.plushnikov.intellij.plugin.psi.LombokLightMethodBuilder;
 import de.plushnikov.intellij.plugin.util.*;
-import lombok.*;
-import lombok.experimental.FieldDefaults;
-import lombok.experimental.Wither;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,19 +43,18 @@ public class BuilderHandler {
   private static final String TO_BUILDER_METHOD_NAME = "toBuilder";
   static final String TO_BUILDER_ANNOTATION_KEY = "toBuilder";
 
-  private static final Collection<String> INVALID_ON_BUILDERS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-    Getter.class.getSimpleName(), Setter.class.getSimpleName(), Wither.class.getSimpleName(), With.class.getSimpleName(),
-    ToString.class.getSimpleName(), EqualsAndHashCode.class.getSimpleName(),
-    RequiredArgsConstructor.class.getSimpleName(), AllArgsConstructor.class.getSimpleName(), NoArgsConstructor.class.getSimpleName(),
-    Data.class.getSimpleName(), Value.class.getSimpleName(), FieldDefaults.class.getSimpleName())));
-
-  private final ToStringProcessor toStringProcessor;
-  private final NoArgsConstructorProcessor noArgsConstructorProcessor;
-
-  public BuilderHandler(@NotNull ToStringProcessor toStringProcessor, @NotNull NoArgsConstructorProcessor noArgsConstructorProcessor) {
-    this.toStringProcessor = toStringProcessor;
-    this.noArgsConstructorProcessor = noArgsConstructorProcessor;
-  }
+  private static final Collection<String> INVALID_ON_BUILDERS = Stream.of(LombokClassNames.GETTER,
+                                                                          LombokClassNames.SETTER,
+                                                                          LombokClassNames.WITHER,
+                                                                          LombokClassNames.WITH,
+                                                                          LombokClassNames.TO_STRING,
+                                                                          LombokClassNames.EQUALS_AND_HASHCODE,
+                                                                          LombokClassNames.REQUIRED_ARGS_CONSTRUCTOR,
+                                                                          LombokClassNames.ALL_ARGS_CONSTRUCTOR,
+                                                                          LombokClassNames.NO_ARGS_CONSTRUCTOR,
+                                                                          LombokClassNames.DATA,
+                                                                          LombokClassNames.VALUE,
+                                                                          LombokClassNames.FIELD_DEFAULTS).map(fqn -> StringUtil.getShortName(fqn)).collect(Collectors.toUnmodifiableSet());
 
   PsiSubstitutor getBuilderSubstitutor(@NotNull PsiTypeParameterListOwner classOrMethodToBuild, @NotNull PsiClass innerClass) {
     PsiSubstitutor substitutor = PsiSubstitutor.EMPTY;
@@ -86,8 +84,8 @@ public class BuilderHandler {
         validateExistingBuilderClass(builderClassName, psiClass, problemBuilder);
       if (result) {
         final Collection<BuilderInfo> builderInfos = createBuilderInfos(psiClass, null).collect(Collectors.toList());
-        result = validateSingular(builderInfos, problemBuilder) &&
-          validateBuilderDefault(builderInfos, problemBuilder) &&
+        result = validateBuilderDefault(builderInfos, problemBuilder) &&
+          validateSingular(builderInfos, problemBuilder) &&
           validateObtainViaAnnotations(builderInfos.stream(), problemBuilder);
       }
     }
@@ -103,7 +101,15 @@ public class BuilderHandler {
       }
     );
 
-    return !anyBuilderDefaultAndSingulars.isPresent();
+    final Optional<BuilderInfo> anyBuilderDefaultWithoutInitializer = builderInfos.stream()
+      .filter(BuilderInfo::hasBuilderDefaultAnnotation)
+      .filter(BuilderInfo::hasNoInitializer).findAny();
+    anyBuilderDefaultWithoutInitializer.ifPresent(builderInfo -> {
+        problemBuilder.addError("@Builder.Default requires an initializing expression (' = something;').");
+      }
+    );
+
+    return anyBuilderDefaultAndSingulars.isEmpty() || anyBuilderDefaultWithoutInitializer.isEmpty();
   }
 
   public boolean validate(@NotNull PsiMethod psiMethod, @NotNull PsiAnnotation psiAnnotation, @NotNull ProblemBuilder problemBuilder) {
@@ -278,6 +284,29 @@ public class BuilderHandler {
     return existingMethods.stream().map(PsiMethod::getName).anyMatch(builderMethodName::equals);
   }
 
+  public Collection<PsiMethod> createBuilderDefaultProviderMethodsIfNecessary(@NotNull PsiClass containingClass, @Nullable PsiMethod psiMethod, @NotNull PsiClass builderPsiClass, @NotNull PsiAnnotation psiAnnotation) {
+    final List<BuilderInfo> builderInfos = createBuilderInfos(psiAnnotation, containingClass, psiMethod, builderPsiClass);
+    return builderInfos.stream()
+      .filter(BuilderInfo::hasBuilderDefaultAnnotation)
+      .filter(b -> !b.hasSingularAnnotation())
+      .filter(b -> !b.hasNoInitializer())
+      .map(this::createBuilderDefaultProviderMethod)
+      .collect(Collectors.toList());
+  }
+
+  private PsiMethod createBuilderDefaultProviderMethod(@NotNull BuilderInfo info) {
+    final PsiClass containingClass = info.getBuilderClass().getContainingClass();
+    final String blockText = String.format("return %s;", info.getFieldInitializer().getText());
+
+    final LombokLightMethodBuilder methodBuilder = new LombokLightMethodBuilder(containingClass.getManager(), info.renderFieldDefaultProviderName())
+      .withMethodReturnType(info.getFieldType())
+      .withContainingClass(containingClass)
+      .withNavigationElement(info.getVariable())
+      .withModifier(PsiModifier.PRIVATE)
+      .withModifier(PsiModifier.STATIC);
+    return methodBuilder.withBody(PsiMethodUtil.createCodeBlockFromText(blockText, methodBuilder));
+  }
+
   public Optional<PsiMethod> createBuilderMethodIfNecessary(@NotNull PsiClass containingClass, @Nullable PsiMethod psiMethod, @NotNull PsiClass builderPsiClass, @NotNull PsiAnnotation psiAnnotation) {
     final String builderMethodName = getBuilderMethodName(psiAnnotation);
     if (!builderMethodName.isEmpty() && !hasMethod(containingClass, builderMethodName)) {
@@ -413,7 +442,7 @@ public class BuilderHandler {
 
   public Optional<PsiClass> createBuilderClassIfNotExist(@NotNull PsiClass psiClass, @Nullable PsiMethod psiMethod, @NotNull PsiAnnotation psiAnnotation) {
     PsiClass builderClass = null;
-    if (!getExistInnerBuilderClass(psiClass, psiMethod, psiAnnotation).isPresent()) {
+    if (getExistInnerBuilderClass(psiClass, psiMethod, psiAnnotation).isEmpty()) {
       builderClass = createBuilderClass(psiClass, psiMethod, psiAnnotation);
     }
     return Optional.ofNullable(builderClass);
@@ -427,8 +456,20 @@ public class BuilderHandler {
   @NotNull
   PsiMethod createToStringMethod(@NotNull PsiAnnotation psiAnnotation, @NotNull PsiClass builderClass, boolean forceCallSuper) {
     final List<EqualsAndHashCodeToStringHandler.MemberInfo> memberInfos = Arrays.stream(builderClass.getFields())
+      .filter(this::isNotBuilderDefaultSetterFields)
       .map(EqualsAndHashCodeToStringHandler.MemberInfo::new).collect(Collectors.toList());
-    return toStringProcessor.createToStringMethod(builderClass, memberInfos, psiAnnotation, forceCallSuper);
+    return getToStringProcessor().createToStringMethod(builderClass, memberInfos, psiAnnotation, forceCallSuper);
+  }
+
+  private boolean isNotBuilderDefaultSetterFields(@NotNull PsiField psiField) {
+    boolean isBuilderDefaultSetter = false;
+    if (psiField.getName().endsWith("$set") && PsiPrimitiveType.BOOLEAN.equals(psiField.getType())) {
+      PsiElement navigationElement = psiField.getNavigationElement();
+      if (navigationElement instanceof PsiField) {
+        isBuilderDefaultSetter = PsiAnnotationSearchUtil.isAnnotatedWith((PsiField) navigationElement, LombokClassNames.BUILDER_DEFAULT);
+      }
+    }
+    return !isBuilderDefaultSetter;
   }
 
   @NotNull
@@ -455,7 +496,7 @@ public class BuilderHandler {
   @NotNull
   public Collection<PsiMethod> createConstructors(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation) {
     final Collection<PsiMethod> methodsIntern = PsiClassUtil.collectClassConstructorIntern(psiClass);
-
+    final NoArgsConstructorProcessor noArgsConstructorProcessor = getNoArgsConstructorProcessor();
     final String constructorName = noArgsConstructorProcessor.getConstructorName(psiClass);
     for (PsiMethod existedConstructor : methodsIntern) {
       if (constructorName.equals(existedConstructor.getName()) && existedConstructor.getParameterList().getParametersCount() == 0) {
@@ -489,7 +530,7 @@ public class BuilderHandler {
     methodBuilder.withBody(PsiMethodUtil.createCodeBlockFromText(codeBlockText, methodBuilder));
 
     Optional<PsiMethod> definedConstructor = Optional.ofNullable(psiMethod);
-    if (!definedConstructor.isPresent()) {
+    if (definedConstructor.isEmpty()) {
       final Collection<PsiMethod> classConstructors = PsiClassUtil.collectClassConstructorIntern(parentClass);
       definedConstructor = classConstructors.stream()
         .filter(m -> sameParameters(m.getParameterList().getParameters(), builderInfos))
@@ -566,5 +607,14 @@ public class BuilderHandler {
     for (PsiTypeParameter psiTypeParameter : psiTypeParameters) {
       methodBuilder.withTypeParameter(psiTypeParameter);
     }
+  }
+
+  private NoArgsConstructorProcessor getNoArgsConstructorProcessor() {
+    return ApplicationManager.getApplication().getService(NoArgsConstructorProcessor.class);
+  }
+
+
+  private ToStringProcessor getToStringProcessor() {
+    return ApplicationManager.getApplication().getService(ToStringProcessor.class);
   }
 }

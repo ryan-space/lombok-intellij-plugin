@@ -1,11 +1,8 @@
 package de.plushnikov.intellij.plugin.processor.clazz;
 
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifier;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.psi.*;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.problem.ProblemBuilder;
 import de.plushnikov.intellij.plugin.problem.ProblemEmptyBuilder;
 import de.plushnikov.intellij.plugin.processor.LombokPsiElementUsage;
@@ -14,13 +11,6 @@ import de.plushnikov.intellij.plugin.processor.clazz.constructor.NoArgsConstruct
 import de.plushnikov.intellij.plugin.util.PsiAnnotationSearchUtil;
 import de.plushnikov.intellij.plugin.util.PsiAnnotationUtil;
 import de.plushnikov.intellij.plugin.util.PsiClassUtil;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.Value;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -31,31 +21,35 @@ import java.util.List;
  */
 public class ValueProcessor extends AbstractClassProcessor {
 
-  private final GetterProcessor getterProcessor;
-  private final EqualsAndHashCodeProcessor equalsAndHashCodeProcessor;
-  private final ToStringProcessor toStringProcessor;
-  private final AllArgsConstructorProcessor allArgsConstructorProcessor;
-  private final NoArgsConstructorProcessor noArgsConstructorProcessor;
+  public ValueProcessor() {
+    super(PsiMethod.class, LombokClassNames.VALUE);
+  }
 
-  public ValueProcessor(@NotNull GetterProcessor getterProcessor,
-                        @NotNull EqualsAndHashCodeProcessor equalsAndHashCodeProcessor,
-                        @NotNull ToStringProcessor toStringProcessor,
-                        @NotNull AllArgsConstructorProcessor allArgsConstructorProcessor,
-                        @NotNull NoArgsConstructorProcessor noArgsConstructorProcessor) {
-    super(PsiMethod.class, Value.class);
+  private ToStringProcessor getToStringProcessor() {
+    return ApplicationManager.getApplication().getService(ToStringProcessor.class);
+  }
 
-    this.getterProcessor = getterProcessor;
-    this.equalsAndHashCodeProcessor = equalsAndHashCodeProcessor;
-    this.toStringProcessor = toStringProcessor;
-    this.allArgsConstructorProcessor = allArgsConstructorProcessor;
-    this.noArgsConstructorProcessor = noArgsConstructorProcessor;
+  private AllArgsConstructorProcessor getAllArgsConstructorProcessor() {
+    return ApplicationManager.getApplication().getService(AllArgsConstructorProcessor.class);
+  }
+
+  private NoArgsConstructorProcessor getNoArgsConstructorProcessor() {
+    return ApplicationManager.getApplication().getService(NoArgsConstructorProcessor.class);
+  }
+
+  private GetterProcessor getGetterProcessor() {
+    return ApplicationManager.getApplication().getService(GetterProcessor.class);
+  }
+
+  private EqualsAndHashCodeProcessor getEqualsAndHashCodeProcessor() {
+    return ApplicationManager.getApplication().getService(EqualsAndHashCodeProcessor.class);
   }
 
   @Override
   protected boolean validate(@NotNull PsiAnnotation psiAnnotation, @NotNull PsiClass psiClass, @NotNull ProblemBuilder builder) {
-    final PsiAnnotation equalsAndHashCodeAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiClass, EqualsAndHashCode.class);
+    final PsiAnnotation equalsAndHashCodeAnnotation = PsiAnnotationSearchUtil.findAnnotation(psiClass, LombokClassNames.EQUALS_AND_HASHCODE);
     if (null == equalsAndHashCodeAnnotation) {
-      equalsAndHashCodeProcessor.validateCallSuperParamExtern(psiAnnotation, psiClass, builder);
+      getEqualsAndHashCodeProcessor().validateCallSuperParamExtern(psiAnnotation, psiClass, builder);
     }
 
     return validateAnnotationOnRightType(psiClass, builder);
@@ -73,31 +67,30 @@ public class ValueProcessor extends AbstractClassProcessor {
   @SuppressWarnings("unchecked")
   protected void generatePsiElements(@NotNull PsiClass psiClass, @NotNull PsiAnnotation psiAnnotation, @NotNull List<? super PsiElement> target) {
 
-    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, Getter.class)) {
-      target.addAll(getterProcessor.createFieldGetters(psiClass, PsiModifier.PUBLIC));
+    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.GETTER)) {
+      target.addAll(getGetterProcessor().createFieldGetters(psiClass, PsiModifier.PUBLIC));
     }
-    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, EqualsAndHashCode.class)) {
-      target.addAll(equalsAndHashCodeProcessor.createEqualAndHashCode(psiClass, psiAnnotation));
+    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.EQUALS_AND_HASHCODE)) {
+      target.addAll(ValueProcessor.this.getEqualsAndHashCodeProcessor().createEqualAndHashCode(psiClass, psiAnnotation));
     }
-    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, ToString.class)) {
-      target.addAll(toStringProcessor.createToStringMethod(psiClass, psiAnnotation));
+    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.TO_STRING)) {
+      target.addAll(getToStringProcessor().createToStringMethod(psiClass, psiAnnotation));
     }
     // create required constructor only if there are no other constructor annotations
-    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, NoArgsConstructor.class, RequiredArgsConstructor.class, AllArgsConstructor.class,
-      lombok.Builder.class)) {
+    if (PsiAnnotationSearchUtil.isNotAnnotatedWith(psiClass, LombokClassNames.NO_ARGS_CONSTRUCTOR, LombokClassNames.REQUIRED_ARGS_CONSTRUCTOR, LombokClassNames.ALL_ARGS_CONSTRUCTOR, LombokClassNames.BUILDER)) {
       final Collection<PsiMethod> definedConstructors = PsiClassUtil.collectClassConstructorIntern(psiClass);
       filterToleratedElements(definedConstructors);
 
       final String staticName = PsiAnnotationUtil.getStringAnnotationValue(psiAnnotation, "staticConstructor");
-      final Collection<PsiField> requiredFields = allArgsConstructorProcessor.getAllFields(psiClass);
+      final Collection<PsiField> requiredFields = getAllArgsConstructorProcessor().getAllFields(psiClass);
 
-      if (allArgsConstructorProcessor.validateIsConstructorNotDefined(psiClass, staticName, requiredFields, ProblemEmptyBuilder.getInstance())) {
-        target.addAll(allArgsConstructorProcessor.createAllArgsConstructor(psiClass, PsiModifier.PUBLIC, psiAnnotation, staticName, requiredFields));
+      if (getAllArgsConstructorProcessor().validateIsConstructorNotDefined(psiClass, staticName, requiredFields, ProblemEmptyBuilder.getInstance())) {
+        target.addAll(getAllArgsConstructorProcessor().createAllArgsConstructor(psiClass, PsiModifier.PUBLIC, psiAnnotation, staticName, requiredFields, true));
       }
     }
 
-    if (shouldGenerateNoArgsConstructor(psiClass, allArgsConstructorProcessor)) {
-      target.addAll(noArgsConstructorProcessor.createNoArgsConstructor(psiClass, PsiModifier.PRIVATE, psiAnnotation, true));
+    if (shouldGenerateExtraNoArgsConstructor(psiClass)) {
+      target.addAll(getNoArgsConstructorProcessor().createNoArgsConstructor(psiClass, PsiModifier.PRIVATE, psiAnnotation, true));
     }
   }
 
@@ -105,8 +98,8 @@ public class ValueProcessor extends AbstractClassProcessor {
   @Override
   public Collection<PsiAnnotation> collectProcessedAnnotations(@NotNull PsiClass psiClass) {
     final Collection<PsiAnnotation> result = super.collectProcessedAnnotations(psiClass);
-    addClassAnnotation(result, psiClass, lombok.experimental.NonFinal.class.getName(), lombok.experimental.PackagePrivate.class.getName());
-    addFieldsAnnotation(result, psiClass, lombok.experimental.NonFinal.class.getName(), lombok.experimental.PackagePrivate.class.getName());
+    addClassAnnotation(result, psiClass, LombokClassNames.NON_FINAL, LombokClassNames.PACKAGE_PRIVATE);
+    addFieldsAnnotation(result, psiClass, LombokClassNames.NON_FINAL, LombokClassNames.PACKAGE_PRIVATE);
     return result;
   }
 

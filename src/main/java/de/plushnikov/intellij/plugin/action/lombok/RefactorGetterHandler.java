@@ -6,14 +6,10 @@ import com.intellij.codeInsight.generation.PsiElementClassMember;
 import com.intellij.codeInsight.generation.PsiFieldMember;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiAnnotation;
-import com.intellij.psi.PsiClass;
-import com.intellij.psi.PsiField;
-import com.intellij.psi.PsiMethod;
-import com.intellij.psi.PsiModifierList;
+import com.intellij.psi.*;
 import com.intellij.psi.util.PropertyUtil;
+import de.plushnikov.intellij.plugin.LombokClassNames;
 import de.plushnikov.intellij.plugin.action.BaseRefactorHandler;
-import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +56,7 @@ public class RefactorGetterHandler extends BaseRefactorHandler {
       if (null != psiMethod) {
         PsiModifierList modifierList = psiField.getModifierList();
         if (null != modifierList) {
-          PsiAnnotation psiAnnotation = modifierList.addAnnotation(Getter.class.getName());
+          PsiAnnotation psiAnnotation = modifierList.addAnnotation(LombokClassNames.GETTER);
 //          psiAnnotation.setDeclaredAttributeValue("value", )
 
           psiMethod.delete();
