@@ -21,9 +21,6 @@
  */
 package com.hundsun.jres.studio.annotation;
 
-import lombok.RequiredArgsConstructor;
-import lombok.Value;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -39,10 +36,8 @@ import java.lang.annotation.Target;
  *
  * @see JRESGetter
  * @see JRESSetter
- * @see RequiredArgsConstructor
  * @see JRESToString
  * @see JRESEqualsAndHashCode
- * @see Value
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)

@@ -26,6 +26,8 @@ def artifactVersion = pluginVersion + "-" + (isEAP ? "EAP" : ideaVersion)
 println "IdeaVersion is : ${ideaVersion}"
 println "ArtifactVersion is : ${artifactVersion}"
 
+buildSearchableOptions.enabled = false
+
 group = pluginGroup
 version = artifactVersion
 
