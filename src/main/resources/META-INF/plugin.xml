@@ -263,20 +263,38 @@
               text="Default @Data"
               description="Action to replace getter/setter/equals/hashcode/toString methods with lombok @Data annotation">
       </action>
+      <action id="defaultJresLombokData" class="de.plushnikov.intellij.plugin.action.lombok.JresLombokDataAction"
+              text="Default @JRESData"
+              description="Action to replace getter/setter/equals/hashcode/toString methods with lombok @JRESData annotation">
+      </action>
       <separator/>
       <action id="defaultLombokGetter" class="de.plushnikov.intellij.plugin.action.lombok.LombokGetterAction"
               text="Default @Getter" description="Action to replace all getter methods with lombok @Getter annotation">
       </action>
+      <action id="defaultJresLombokGetter" class="de.plushnikov.intellij.plugin.action.lombok.JresLombokGetterAction"
+              text="Default @JRESGetter" description="Action to replace all getter methods with lombok @JRESGetter annotation">
+      </action>
       <action id="defaultLombokSetter" class="de.plushnikov.intellij.plugin.action.lombok.LombokSetterAction"
               text="Default @Setter" description="Action to replace all setter methods with lombok @Setter annotation">
+      </action>
+      <action id="defaultJresLombokSetter" class="de.plushnikov.intellij.plugin.action.lombok.JresLombokSetterAction"
+              text="Default @JRESSetter" description="Action to replace all setter methods with lombok @JRESSetter annotation">
       </action>
       <action id="defaultLombokEqualsAndHashcode"
               class="de.plushnikov.intellij.plugin.action.lombok.LombokEqualsAndHashcodeAction"
               text="Default @EqualsAndHashcode"
               description="Action to replace equals and hashcode methods with lombok @EqualsAndHashcode annotation">
       </action>
+      <action id="defaultJresLombokEqualsAndHashcode"
+              class="de.plushnikov.intellij.plugin.action.lombok.JresLombokEqualsAndHashcodeAction"
+              text="Default @JRESEqualsAndHashcode"
+              description="Action to replace equals and hashcode methods with lombok @JRESEqualsAndHashcode annotation">
+      </action>
       <action id="defaultLombokToString" class="de.plushnikov.intellij.plugin.action.lombok.LombokToStringAction"
               text="Default @ToString" description="Action to replace toString method with lombok @ToString annotation">
+      </action>
+      <action id="defaultJresLombokToString" class="de.plushnikov.intellij.plugin.action.lombok.JresLombokToStringAction"
+              text="Default @JRESToString" description="Action to replace toString method with lombok @JRESToString annotation">
       </action>
       <separator/>
       <action id="defaultLombokLogger" class="de.plushnikov.intellij.plugin.action.lombok.LombokLoggerAction"
@@ -305,6 +323,9 @@
       <action id="delombokData" class="de.plushnikov.intellij.plugin.action.delombok.DelombokDataAction"
               text="@Data" description="Action to replace lombok @Data annotation with vanilla java methods">
       </action>
+      <action id="delombokJresData" class="de.plushnikov.intellij.plugin.action.delombok.JresDelombokDataAction"
+              text="@JRESData" description="Action to replace lombok @JRESData annotation with vanilla java methods">
+      </action>
       <action id="delombokValue" class="de.plushnikov.intellij.plugin.action.delombok.DelombokValueAction"
               text="@Value" description="Action to replace lombok @Value annotation with vanilla java methods">
       </action>
@@ -329,16 +350,30 @@
       <action id="delombokGetter" class="de.plushnikov.intellij.plugin.action.delombok.DelombokGetterAction"
               text="@Getter" description="Action to replace lombok @Getter annotation with vanilla getter methods">
       </action>
+      <action id="delombokJresGetter" class="de.plushnikov.intellij.plugin.action.delombok.JresDelombokGetterAction"
+              text="@JRESGetter" description="Action to replace lombok @JRESGetter annotation with vanilla getter methods">
+      </action>
       <action id="delombokSetter" class="de.plushnikov.intellij.plugin.action.delombok.DelombokSetterAction"
               text="@Setter" description="Action to replace lombok @Setter annotation with vanilla setter methods">
+      </action>
+      <action id="delombokJresSetter" class="de.plushnikov.intellij.plugin.action.delombok.JresDelombokSetterAction"
+              text="@JRESSetter" description="Action to replace lombok @JRESSetter annotation with vanilla setter methods">
       </action>
       <action id="delombokEqualsAndHashCode"
               class="de.plushnikov.intellij.plugin.action.delombok.DelombokEqualsAndHashCodeAction"
               text="@EqualsAndHashCode"
               description="Action to replace lombok @EqualsAndHashCode annotation with vanilla java methods">
       </action>
+      <action id="delombokJresEqualsAndHashCode"
+              class="de.plushnikov.intellij.plugin.action.delombok.JresDelombokEqualsAndHashCodeAction"
+              text="@JRESEqualsAndHashCode"
+              description="Action to replace lombok @JRESEqualsAndHashCode annotation with vanilla java methods">
+      </action>
       <action id="delombokToString" class="de.plushnikov.intellij.plugin.action.delombok.DelombokToStringAction"
               text="@ToString" description="Action to replace lombok @ToString annotation with vanilla java methods">
+      </action>
+      <action id="delombokJresToString" class="de.plushnikov.intellij.plugin.action.delombok.JresDelombokToStringAction"
+              text="@JRESToString" description="Action to replace lombok @JRESToString annotation with vanilla java methods">
       </action>
       <separator/>
       <action id="delombokLogger" class="de.plushnikov.intellij.plugin.action.delombok.DelombokLoggerAction"

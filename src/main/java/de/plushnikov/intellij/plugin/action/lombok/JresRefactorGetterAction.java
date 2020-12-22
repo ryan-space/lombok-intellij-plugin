@@ -6,6 +6,7 @@ import de.plushnikov.intellij.plugin.action.BaseRefactorAction;
 
 public class JresRefactorGetterAction extends BaseRefactorAction {
 
+  @Override
   protected JresRefactorGetterHandler initHandler(Project project, DataContext dataContext) {
     return new JresRefactorGetterHandler(project, dataContext);
   }

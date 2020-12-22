@@ -10,8 +10,8 @@ public class JresLombokDataHandler extends BaseLombokHandler {
 
   public JresLombokDataHandler() {
     handlers = new BaseLombokHandler[]{
-      new LombokGetterHandler(), new LombokSetterHandler(),
-      new LombokToStringHandler(), new LombokEqualsAndHashcodeHandler()};
+      new JresLombokGetterHandler(), new JresLombokGetterHandler(),
+      new JresLombokToStringHandler(), new JresLombokEqualsAndHashcodeHandler()};
   }
 
   protected void processClass(@NotNull PsiClass psiClass) {
