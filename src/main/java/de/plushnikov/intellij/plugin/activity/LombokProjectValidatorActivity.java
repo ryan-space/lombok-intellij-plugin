@@ -3,7 +3,6 @@ package de.plushnikov.intellij.plugin.activity;
 import com.intellij.compiler.CompilerConfiguration;
 import com.intellij.compiler.CompilerConfigurationImpl;
 import com.intellij.notification.*;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.module.Module;
@@ -16,9 +15,12 @@ import com.intellij.openapi.startup.StartupActivity;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.popup.Balloon;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.JavaPsiFacade;
+import com.intellij.psi.PsiDirectory;
+import com.intellij.psi.PsiPackage;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.ui.awt.RelativePoint;
@@ -32,8 +34,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.jps.model.java.compiler.AnnotationProcessingConfiguration;
 
 import javax.swing.event.HyperlinkEvent;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
 
 /**
  * Shows notifications about project setup issues, that make the plugin not working.
@@ -41,35 +42,21 @@ import java.util.regex.Pattern;
  * @author Alexej Kubarev
  */
 public class LombokProjectValidatorActivity implements StartupActivity.DumbAware {
-
-  private static final Pattern LOMBOK_VERSION_PATTERN = Pattern.compile("(.*:)([\\d.]+)(.*)");
-
   @Override
   public void runActivity(@NotNull Project project) {
-    // If plugin is not enabled - no point to continue
-    if (!ProjectSettings.isLombokEnabledInProject(project)) {
-      return;
-    }
-
+    LombokProcessorProvider lombokProcessorProvider = LombokProcessorProvider.getInstance(project);
     ReadAction.nonBlocking(() -> {
       if (project.isDisposed()) return null;
 
       final boolean hasLombokLibrary = hasLombokLibrary(project);
 
-      // If dependency is missing and missing dependency notification setting is enabled (defaults to disabled)
-      if (!hasLombokLibrary && ProjectSettings.isEnabled(project, ProjectSettings.IS_MISSING_LOMBOK_CHECK_ENABLED, false)) {
-        return getNotificationGroup().createNotification(LombokBundle.message("config.warn.dependency.missing.title"),
-                                                         LombokBundle.message("config.warn.dependency.missing.message", project.getName()),
-                                                         NotificationType.ERROR, NotificationListener.URL_OPENING_LISTENER);
-      }
-
       // If dependency is present and out of date notification setting is enabled (defaults to disabled)
       if (hasLombokLibrary && ProjectSettings.isEnabled(project, ProjectSettings.IS_LOMBOK_VERSION_CHECK_ENABLED, false)) {
         final ModuleManager moduleManager = ModuleManager.getInstance(project);
         for (Module module : moduleManager.getModules()) {
-          String lombokVersion = parseLombokVersion(findLombokEntry(ModuleRootManager.getInstance(module)));
+          String lombokVersion = Version.parseLombokVersion(findLombokEntry(ModuleRootManager.getInstance(module)));
 
-          if (null != lombokVersion && compareVersionString(lombokVersion, Version.LAST_LOMBOK_VERSION) < 0) {
+          if (null != lombokVersion && Version.compareVersionString(lombokVersion, Version.LAST_LOMBOK_VERSION) < 0) {
             return getNotificationGroup().createNotification(LombokBundle.message("config.warn.dependency.outdated.title"),
                                                              LombokBundle
                                                                .message("config.warn.dependency.outdated.message", project.getName(),
@@ -87,20 +74,20 @@ public class LombokProjectValidatorActivity implements StartupActivity.DumbAware
           .createNotification(LombokBundle.message("config.warn.annotation-processing.disabled.title"),
                               LombokBundle.message("config.warn.annotation-processing.disabled.message", project.getName()),
                               NotificationType.ERROR,
-                              ApplicationManager.getApplication().isUnitTestMode() ? null
-                                                                                   : (not, e) -> {
-                                                                                     if (e.getEventType() ==
-                                                                                         HyperlinkEvent.EventType.ACTIVATED) {
-                                                                                       enableAnnotations(project);
-                                                                                       not.expire();
-                                                                                     }
-                                                                                   });
+                              (not, e) -> {
+                                if (e.getEventType() ==
+                                    HyperlinkEvent.EventType.ACTIVATED) {
+                                  enableAnnotations(project);
+                                  not.expire();
+                                }
+                              });
       }
       return null;
-    }).expireWith(LombokProcessorProvider.getInstance(project))
+    }).expireWith(lombokProcessorProvider)
       .finishOnUiThread(ModalityState.NON_MODAL, notification -> {
         if (notification != null) {
           Notifications.Bus.notify(notification, project);
+          Disposer.register(lombokProcessorProvider, () -> notification.expire());
         }
       }).submit(AppExecutorUtil.getAppExecutorService());
   }
@@ -142,8 +129,35 @@ public class LombokProjectValidatorActivity implements StartupActivity.DumbAware
   }
 
   public static boolean hasLombokLibrary(Project project) {
-    return CachedValuesManager.getManager(project).getCachedValue(project, () -> new CachedValueProvider.Result<>(JavaPsiFacade.getInstance(project).findPackage("lombok.experimental"),
-                                                                                                                  ProjectRootManager.getInstance(project))) != null;
+    return CachedValuesManager.getManager(project).getCachedValue(project, () -> {
+      PsiPackage aPackage = ReadAction.compute(() -> JavaPsiFacade.getInstance(project).findPackage("lombok.experimental"));
+      return new CachedValueProvider.Result<>(aPackage, ProjectRootManager.getInstance(project));
+    }) != null;
+  }
+
+  public static boolean isVersionLessThan1_18_16(Project project) {
+    if (hasLombokLibrary(project)) {
+      return CachedValuesManager.getManager(project)
+        .getCachedValue(project, () -> {
+          Boolean isVersionLessThan = ReadAction.compute(() -> isVersionLessThan1_18_16_Internal(project));
+          return new CachedValueProvider.Result<>(isVersionLessThan, ProjectRootManager.getInstance(project));
+        });
+    }
+    return false;
+  }
+
+  private static boolean isVersionLessThan1_18_16_Internal(@NotNull Project project) {
+    PsiPackage aPackage = JavaPsiFacade.getInstance(project).findPackage("lombok.experimental");
+    if (aPackage != null) {
+      PsiDirectory[] directories = aPackage.getDirectories();
+      if (directories.length > 0) {
+        List<OrderEntry> entries = ProjectRootManager.getInstance(project).getFileIndex().getOrderEntriesForFile(directories[0].getVirtualFile());
+        if (!entries.isEmpty()) {
+          return Version.isLessThan(entries.get(0), "1.18.16");
+        }
+      }
+    }
+    return false;
   }
 
   @Nullable
@@ -155,37 +169,5 @@ public class LombokProjectValidatorActivity implements StartupActivity.DumbAware
       }
     }
     return null;
-  }
-
-  @Nullable
-  String parseLombokVersion(@Nullable OrderEntry orderEntry) {
-    String result = null;
-    if (null != orderEntry) {
-      final String presentableName = orderEntry.getPresentableName();
-      final Matcher matcher = LOMBOK_VERSION_PATTERN.matcher(presentableName);
-      if (matcher.find()) {
-        result = matcher.group(2);
-      }
-    }
-    return result;
-  }
-
-  int compareVersionString(@NotNull String firstVersionOne, @NotNull String secondVersion) {
-    String[] firstVersionParts = firstVersionOne.split("\\.");
-    String[] secondVersionParts = secondVersion.split("\\.");
-    int length = Math.max(firstVersionParts.length, secondVersionParts.length);
-    for (int i = 0; i < length; i++) {
-      int firstPart = i < firstVersionParts.length && !firstVersionParts[i].isEmpty() ?
-        Integer.parseInt(firstVersionParts[i]) : 0;
-      int secondPart = i < secondVersionParts.length && !secondVersionParts[i].isEmpty() ?
-        Integer.parseInt(secondVersionParts[i]) : 0;
-      if (firstPart < secondPart) {
-        return -1;
-      }
-      if (firstPart > secondPart) {
-        return 1;
-      }
-    }
-    return 0;
   }
 }
