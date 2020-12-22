@@ -5,6 +5,7 @@
   <vendor url="https://github.com/mplushnikov/lombok-intellij-plugin" email="lombokplugin@plushnikov.de">Michail
     Plushnikov
   </vendor>
+  <resource-bundle>messages.LombokBundle</resource-bundle>
   <version>XXX</version>
 
   <idea-version since-build="201.00"/>
@@ -15,6 +16,12 @@
   <depends>com.intellij.modules.lang</depends>
   <depends>com.intellij.modules.platform</depends>
   <depends>com.intellij.modules.java</depends>
+
+  <project-components>
+    <component>
+      <implementation-class>de.plushnikov.intellij.plugin.hack.extension.ExtensionMethodSupport</implementation-class>
+    </component>
+  </project-components>
 
   <extensions defaultExtensionNs="com.intellij">
     <postStartupActivity implementation="de.plushnikov.intellij.plugin.activity.LombokPluginUpdateActivity"/>
@@ -243,11 +250,14 @@
 
     <codeInsight.template.postfixTemplateProvider language="JAVA"
                                                   implementationClass="de.plushnikov.intellij.plugin.extension.postfix.LombokPostfixTemplateProvider"/>
+    <codeInsight.externalLibraryResolver implementation="de.plushnikov.intellij.plugin.resolver.LombokExternalLibraryResolver"/>
+
+    <buildProcess.parametersProvider implementation="de.plushnikov.intellij.plugin.jps.LombokBuildProcessParametersProvider"/>
   </extensions>
 
   <actions>
     <group id="LombokActionGroup" text="Lombok" description="Refactor code with lombok annotations"
-           icon="/icons/lombok.png" popup="true">
+           icon="/icons/lombok.svg" popup="true">
 
       <action id="defaultLombokData" class="de.plushnikov.intellij.plugin.action.lombok.LombokDataAction"
               text="Default @Data"
@@ -286,7 +296,7 @@
       <add-to-group group-id="RefactoringMenu" anchor="last"/>
     </group>
     <group id="DelombokActionGroup" text="Delombok" description="Refactor code removing lombok annotations"
-           icon="/icons/delombok.png" popup="true">
+           icon="/icons/lombok.svg" popup="true">
       <action id="delombokAny" class="de.plushnikov.intellij.plugin.action.delombok.DelombokEverythingAction"
               text="All lombok annotations"
               description="Action to replace all lombok annotations with vanilla java methods">
